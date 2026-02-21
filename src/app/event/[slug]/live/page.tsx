@@ -28,5 +28,15 @@ export default async function LivePage({ params }: LivePageProps) {
     );
   }
 
-  return <DisplayView event={{ id: event.id, slug: event.slug, title: event.title }} />;
+  const { data: attendees } = await from(supabase, "event_attendees")
+    .select("id, display_name, status, user_id")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: true });
+
+  return (
+    <DisplayView
+      event={{ id: event.id, slug: event.slug, title: event.title }}
+      attendees={attendees ?? []}
+    />
+  );
 }

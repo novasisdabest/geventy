@@ -8,15 +8,23 @@ import { SlideshowDisplay } from "@/components/display/SlideshowDisplay";
 import { MessageWallDisplay } from "@/components/display/MessageWallDisplay";
 import { CustomBlockDisplay } from "@/components/display/CustomBlockDisplay";
 
+interface Attendee {
+  id: string;
+  display_name: string;
+  status: string;
+  user_id: string | null;
+}
+
 interface DisplayViewProps {
   event: {
     id: string;
     slug: string;
     title: string;
   };
+  attendees: Attendee[];
 }
 
-export function DisplayView({ event }: DisplayViewProps) {
+export function DisplayView({ event, attendees }: DisplayViewProps) {
   const activeBlock = useGameStore((s) => s.activeBlock);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
 
@@ -33,6 +41,8 @@ export function DisplayView({ event }: DisplayViewProps) {
         eventTitle={event.title}
         eventSlug={event.slug}
         onlineCount={onlinePlayers.filter((p) => !p.is_display).length}
+        attendees={attendees}
+        onlinePlayers={onlinePlayers}
       />
     );
   }

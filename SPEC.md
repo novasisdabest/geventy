@@ -302,7 +302,75 @@ Grid of upcoming events with:
 
 ---
 
-## 8. Implementation Priority
+## 8. Push Notifications
+
+### 8.1 Overview
+
+Send browser push notifications to all signed-in attendees when the presenter starts the first game/block of the event. Keeps attendees engaged even if they've navigated away from the event page.
+
+### 8.2 Architecture
+
+**Service Worker** (`public/sw.js`):
+- Registers on the event page (`/event/[slug]`)
+- Handles `push` events and shows native browser notifications
+- Handles `notificationclick` to navigate back to the event page
+
+**Push Subscription Flow**:
+1. Player opens event page → browser prompts for notification permission
+2. On grant → `PushManager.subscribe()` with VAPID public key
+3. Subscription endpoint + keys stored in `push_subscriptions` table (linked to `attendee_id`)
+
+**Sending Notifications**:
+- When moderator activates the first program block (`block_activate` broadcast), a server action fires
+- Server action reads all push subscriptions for the event
+- Uses `web-push` library (Node) or a Supabase Edge Function to send to all endpoints
+- Payload: `{ title: "Event začíná!", body: "Připoj se k {eventTitle}", url: "/event/{slug}" }`
+
+### 8.3 Database
+
+New table: `push_subscriptions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `attendee_id` | uuid | FK → event_attendees.id |
+| `event_id` | uuid | FK → events.id |
+| `endpoint` | text | Push service endpoint URL |
+| `keys` | jsonb | `{ p256dh, auth }` encryption keys |
+| `created_at` | timestamptz | |
+
+RLS: attendees can insert/delete their own subscriptions. Server can read all for an event.
+
+### 8.4 VAPID Keys
+
+- Generate once via `web-push generate-vapid-keys`
+- Store in Supabase Edge Function secrets or environment variables
+- Public key exposed to client via `/api/vapid-public-key` or env var
+
+### 8.5 Trigger Conditions
+
+| Trigger | Notification |
+|---------|-------------|
+| First block activated | "Event začíná! Připoj se k {eventTitle}" |
+| (Future) Game about to start | "{gameName} začíná za 30 sekund!" |
+| (Future) Event reminder | "Tvůj event {eventTitle} začíná za 30 minut" |
+
+### 8.6 Implementation Approach
+
+**Option A — Supabase Edge Function (recommended)**:
+- Edge Function `send-push` receives `event_id` + payload
+- Reads subscriptions from DB, sends via Web Push protocol
+- Called from server action when moderator starts first block
+- Handles expired/invalid subscriptions (cleanup on 410 responses)
+
+**Option B — Next.js API Route**:
+- API route `/api/push/send` with same logic
+- Requires `web-push` npm package
+- Simpler but runs on Vercel serverless (cold start considerations)
+
+---
+
+## 9. Implementation Priority
 
 Suggested order for chunked implementation:
 
@@ -310,8 +378,9 @@ Suggested order for chunked implementation:
 2. **Game configurator + variants** — variant CRUD, public variant browser, pricing
 3. **Event timeline builder** — block types, default templates, reordering
 4. **Chat + photo sharing** — message wall, photo upload, reporting, reactions, projector display
-5. **AI moderation (Gemini)** — seriousness scale, content moderation, commentary generation
-6. **Legendaryness index** — scoring engine, live dashboard, cross-event leaderboards
-7. **Monetization** — tier system, payment for variants, feature gating
-8. **Dashboard redesign** — 3-tab layout, preparation view, live control view
-9. **Active event forcing** — auto-redirect to moderator/attendee mode during live events
+5. **Push notifications** — service worker, subscription storage, send on first block activation
+6. **AI moderation (Gemini)** — seriousness scale, content moderation, commentary generation
+7. **Legendaryness index** — scoring engine, live dashboard, cross-event leaderboards
+8. **Monetization** — tier system, payment for variants, feature gating
+9. **Dashboard redesign** — 3-tab layout, preparation view, live control view
+10. **Active event forcing** — auto-redirect to moderator/attendee mode during live events

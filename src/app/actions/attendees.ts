@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { from, rpc } from "@/lib/supabase/typed";
+import { generateNickname } from "@/lib/nicknames";
 
 export async function inviteAttendeeAction(eventId: string, formData: FormData) {
   const supabase = await createClient();
@@ -27,7 +28,7 @@ export async function inviteAttendeeAction(eventId: string, formData: FormData) 
     .insert({
       event_id: eventId,
       email,
-      display_name: displayName,
+      display_name: generateNickname(displayName),
     });
 
   if (error) {
@@ -66,13 +67,13 @@ export async function selfJoinAction(eventId: string) {
     .eq("id", user.id)
     .single();
 
-  const displayName = profile?.full_name || user.email?.split("@")[0] || "Host";
+  const rawName = profile?.full_name || user.email?.split("@")[0] || "Host";
 
   const { error } = await from(supabase, "event_attendees")
     .insert({
       event_id: eventId,
       email: user.email!,
-      display_name: displayName,
+      display_name: generateNickname(rawName),
       user_id: user.id,
       status: "confirmed" as const,
       joined_at: new Date().toISOString(),
