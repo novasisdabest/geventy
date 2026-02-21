@@ -48,7 +48,7 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
 
   const activeBlock = useGameStore((s) => s.activeBlock);
 
-  async function handleStartGame(game: Tables<"games_library">) {
+  async function handleStartGame(game: Tables<"games_library">, broadcastToDisplay = false) {
     const result = await startGameAction(event.id, game.id);
     if (result.error) return;
 
@@ -56,6 +56,22 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
     setActiveGameSlug(game.slug);
     useGameStore.getState().setEventContext(event.id, result.programId!);
     useGameStore.getState().reset();
+
+    if (broadcastToDisplay) {
+      const blockData = {
+        id: result.programId!,
+        type: "game",
+        title: game.name,
+        gameSlug: game.slug,
+      };
+      sendCommand("block_activate", blockData);
+      useGameStore.getState().setActiveBlock({
+        id: result.programId!,
+        type: "game",
+        title: game.name,
+        gameSlug: game.slug,
+      });
+    }
   }
 
   function handleActivateBlock(block: ProgramBlock) {
@@ -237,7 +253,7 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
               {gamesLibrary.map((game) => (
                 <button
                   key={game.id}
-                  onClick={() => handleStartGame(game)}
+                  onClick={() => handleStartGame(game, true)}
                   disabled={!!programId}
                   className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/30 border border-slate-800 hover:border-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors group"
                 >
