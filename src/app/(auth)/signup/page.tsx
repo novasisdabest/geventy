@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { signupAction } from "@/app/actions/auth";
+import OAuthButtons from "@/components/auth/OAuthButtons";
 
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,8 @@ export default function SignupPage() {
           Vytvor si ucet a zacni tvorit eventy
         </p>
       </div>
+
+      <OAuthButtons />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (

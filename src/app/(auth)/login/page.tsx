@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
+import OAuthButtons from "@/components/auth/OAuthButtons";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,8 @@ export default function LoginPage() {
           Zadej email a heslo pro vstup do aplikace
         </p>
       </div>
+
+      <OAuthButtons />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (

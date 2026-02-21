@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function loginAction(formData: FormData) {
@@ -36,6 +37,19 @@ export async function signupAction(formData: FormData) {
   }
 
   redirect("/dashboard");
+}
+
+export async function signInWithOAuthAction(provider: "google" | "apple") {
+  const supabase = await createClient();
+  const origin = (await headers()).get("origin") ?? "";
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: `${origin}/auth/callback` },
+  });
+
+  if (error) return { error: error.message };
+  return { url: data.url };
 }
 
 export async function signOutAction() {
