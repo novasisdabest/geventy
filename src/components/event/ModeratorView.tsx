@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Users, Gamepad2, ChevronRight, Home, Play } from "lucide-react";
+import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
 import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
 import { startGameAction } from "@/app/actions/program";
 import type { Tables } from "@/lib/database.types";
+import type { ActiveBlock } from "@/stores/game-store";
+
+interface ProgramBlock extends Tables<"event_program"> {
+  gameSlug?: string;
+  gameName?: string;
+}
 
 interface ModeratorViewProps {
   event: {
@@ -18,10 +24,11 @@ interface ModeratorViewProps {
   };
   attendees: Tables<"event_attendees">[];
   gamesLibrary: Tables<"games_library">[];
+  blocks: ProgramBlock[];
   initialProgramId: string | null;
 }
 
-export function ModeratorView({ event, attendees, gamesLibrary, initialProgramId }: ModeratorViewProps) {
+export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialProgramId }: ModeratorViewProps) {
   const [programId, setProgramId] = useState<string | null>(initialProgramId);
   const [activeGameSlug, setActiveGameSlug] = useState<string | null>(
     initialProgramId ? "who-am-i" : null
@@ -39,6 +46,8 @@ export function ModeratorView({ event, attendees, gamesLibrary, initialProgramId
     isModerator: true,
   });
 
+  const activeBlock = useGameStore((s) => s.activeBlock);
+
   async function handleStartGame(game: Tables<"games_library">) {
     const result = await startGameAction(event.id, game.id);
     if (result.error) return;
@@ -46,6 +55,41 @@ export function ModeratorView({ event, attendees, gamesLibrary, initialProgramId
     setProgramId(result.programId!);
     setActiveGameSlug(game.slug);
     useGameStore.getState().setEventContext(event.id, result.programId!);
+    useGameStore.getState().reset();
+  }
+
+  function handleActivateBlock(block: ProgramBlock) {
+    const blockType = (block.block_type || "custom") as ActiveBlock["type"];
+    const payload: Record<string, unknown> = {
+      id: block.id,
+      type: blockType,
+      title: block.title || "Blok",
+      gameSlug: block.gameSlug,
+      config: block.config as Record<string, unknown> | undefined,
+    };
+
+    // For game blocks, also start the game in DB
+    if (blockType === "game" && block.game_id) {
+      const game = gamesLibrary.find((g) => g.id === block.game_id);
+      if (game) {
+        handleStartGame(game);
+        payload.gameSlug = game.slug;
+      }
+    }
+
+    sendCommand("block_activate", payload);
+    useGameStore.getState().setActiveBlock({
+      id: block.id,
+      type: blockType,
+      title: block.title || "Blok",
+      gameSlug: block.gameSlug,
+      config: block.config as Record<string, unknown> | undefined,
+    });
+  }
+
+  function handleDeactivateBlock() {
+    sendCommand("block_deactivate");
+    useGameStore.getState().clearActiveBlock();
     useGameStore.getState().reset();
   }
 
@@ -58,8 +102,18 @@ export function ModeratorView({ event, attendees, gamesLibrary, initialProgramId
         >
           <Home size={14} /> ZPET NA DASHBOARD
         </Link>
-        <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-slate-600 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-          {event.slug.toUpperCase()}
+        <div className="flex items-center gap-3">
+          <a
+            href={`/event/${event.slug}/live`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors"
+          >
+            <Monitor size={12} /> Otevrit projektor
+          </a>
+          <div className="text-[10px] font-black tracking-widest text-slate-600 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+            {event.slug.toUpperCase()}
+          </div>
         </div>
       </div>
 
@@ -120,6 +174,59 @@ export function ModeratorView({ event, attendees, gamesLibrary, initialProgramId
               )}
             </div>
           </div>
+
+          {/* Program blocks */}
+          {blocks.length > 0 && (
+            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-sm flex items-center gap-2 italic uppercase">
+                  <LayoutList size={16} className="text-purple-400" /> Program
+                </h3>
+                {activeBlock && (
+                  <button
+                    onClick={handleDeactivateBlock}
+                    className="flex items-center gap-1 text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <X size={12} /> Deaktivovat
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {blocks.map((block) => {
+                  const isActive = activeBlock?.id === block.id;
+                  return (
+                    <button
+                      key={block.id}
+                      onClick={() => !isActive && handleActivateBlock(block)}
+                      disabled={isActive}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors group ${
+                        isActive
+                          ? "bg-purple-600/20 border-purple-500/50"
+                          : "bg-slate-800/30 border-slate-800 hover:border-purple-500/50"
+                      }`}
+                    >
+                      <div className="text-left">
+                        <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">
+                          {block.title || block.gameName || "Blok"}
+                        </span>
+                        <p className="text-[10px] text-slate-600 mt-0.5 capitalize">
+                          {block.block_type === "game" ? block.gameName || "Hra" : block.block_type}
+                        </p>
+                      </div>
+                      {isActive ? (
+                        <Play size={14} className="text-green-400" />
+                      ) : (
+                        <ChevronRight
+                          size={14}
+                          className="text-slate-600 group-hover:text-purple-400 transition-colors"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Game library */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">

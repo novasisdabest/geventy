@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Monitor } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { from } from "@/lib/supabase/typed";
 import DashboardTabs, { type TabId } from "@/components/dashboard/DashboardTabs";
@@ -11,6 +11,7 @@ import TimelineTab from "@/components/dashboard/TimelineTab";
 import AttendeesTab from "@/components/dashboard/AttendeesTab";
 import type { Tables } from "@/lib/database.types";
 import type { EventType } from "@/lib/timeline-templates";
+import { TvGuideCard } from "@/components/dashboard/TvGuideCard";
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -71,13 +72,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         >
           <ArrowLeft size={14} /> Zpet na prehled
         </Link>
-        <Link
-          href={`/event/${event.slug}/moderator`}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors"
-        >
-          <ExternalLink size={14} />
-          Moderovat
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/event/${event.slug}/live`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors border border-slate-700"
+          >
+            <Monitor size={14} />
+            Projektor
+          </a>
+          <Link
+            href={`/event/${event.slug}/moderator`}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors"
+          >
+            <ExternalLink size={14} />
+            Moderovat
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -87,6 +99,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         attendeeCount={attendees.length}
         blockCount={blocks.length}
       />
+
+      {/* TV Guide */}
+      <TvGuideCard />
 
       {/* Tab content */}
       {activeTab === "priprava" && (

@@ -3,13 +3,14 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { useGameStore, type GameCommand, type OnlinePlayer } from "@/stores/game-store";
+import { useGameStore, type GameCommand, type OnlinePlayer, type ActiveBlock } from "@/stores/game-store";
 
 interface UseEventChannelOptions {
   eventId: string;
   attendeeId: string;
   displayName: string;
   isModerator?: boolean;
+  isDisplay?: boolean;
 }
 
 export function useEventChannel({
@@ -17,6 +18,7 @@ export function useEventChannel({
   attendeeId,
   displayName,
   isModerator = false,
+  isDisplay = false,
 }: UseEventChannelOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
@@ -32,6 +34,7 @@ export function useEventChannel({
         attendee_id: string;
         display_name: string;
         avatar_seed: string;
+        is_display?: boolean;
       }>();
 
       const players: OnlinePlayer[] = Object.values(state)
@@ -40,6 +43,7 @@ export function useEventChannel({
           attendee_id: p.attendee_id,
           display_name: p.display_name,
           avatar_seed: p.attendee_id.slice(0, 8),
+          is_display: p.is_display,
         }));
 
       useGameStore.getState().setOnlinePlayers(players);
@@ -85,12 +89,27 @@ export function useEventChannel({
         case "set_phase":
           store.setPhase(cmd.data?.phase as GameCommand["action"] & string as typeof store.phase);
           break;
+
+        case "block_activate":
+          store.setActiveBlock({
+            id: cmd.data?.id as string,
+            type: cmd.data?.type as ActiveBlock["type"],
+            title: cmd.data?.title as string,
+            gameSlug: cmd.data?.gameSlug as string | undefined,
+            config: cmd.data?.config as Record<string, unknown> | undefined,
+          });
+          break;
+
+        case "block_deactivate":
+          store.clearActiveBlock();
+          store.reset();
+          break;
       }
     });
 
     // Live vote counter (lightweight broadcast from players)
     channel.on("broadcast", { event: "vote_cast" }, ({ payload }) => {
-      if (isModerator) {
+      if (isModerator || isDisplay) {
         const votes = useGameStore.getState().votes;
         const votedFor = payload.voted_for as string;
         useGameStore.getState().updateVotes({
@@ -107,6 +126,7 @@ export function useEventChannel({
           display_name: displayName,
           avatar_seed: attendeeId.slice(0, 8),
           is_moderator: isModerator,
+          is_display: isDisplay,
         });
       }
     });
@@ -117,7 +137,7 @@ export function useEventChannel({
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [eventId, attendeeId, displayName, isModerator, supabase]);
+  }, [eventId, attendeeId, displayName, isModerator, isDisplay, supabase]);
 
   const sendCommand = useCallback(
     (action: string, data?: Record<string, unknown>) => {

@@ -4,6 +4,7 @@ import { from } from "@/lib/supabase/typed";
 import { Shell } from "@/components/layout/Shell";
 import { ModeratorView } from "@/components/event/ModeratorView";
 import Link from "next/link";
+import type { Tables } from "@/lib/database.types";
 
 interface ModeratorPageProps {
   params: Promise<{ slug: string }>;
@@ -62,15 +63,28 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
     .eq("is_published", true)
     .order("name");
 
-  // Fetch active program
-  const { data: activePrograms } = await from(supabase, "event_program")
-    .select("id")
+  // Fetch all program blocks
+  const { data: programBlocks } = await from(supabase, "event_program")
+    .select("*")
     .eq("event_id", event.id)
-    .in("status", ["pending", "active"])
-    .order("sort_order")
-    .limit(1);
+    .order("sort_order");
 
-  const activeProgramId = activePrograms?.[0]?.id ?? null;
+  // Map game_id → slug for blocks
+  const gamesList = (games ?? []) as Tables<"games_library">[];
+  const gamesById = Object.fromEntries(
+    gamesList.map((g) => [g.id, g])
+  );
+  const blocksList = (programBlocks ?? []) as Tables<"event_program">[];
+  const blocksWithGameSlug = blocksList.map((block) => ({
+    ...block,
+    gameSlug: block.game_id ? gamesById[block.game_id]?.slug : undefined,
+    gameName: block.game_id ? gamesById[block.game_id]?.name : undefined,
+  }));
+
+  // Fetch active program
+  const activeProgramId = blocksList.find(
+    (b) => b.status === "pending" || b.status === "active"
+  )?.id ?? null;
 
   // Fetch profile for Shell
   const { data: profile } = await from(supabase, "profiles")
@@ -91,6 +105,7 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
         event={{ id: event.id, slug: event.slug, title: event.title }}
         attendees={attendees ?? []}
         gamesLibrary={games ?? []}
+        blocks={blocksWithGameSlug}
         initialProgramId={activeProgramId}
       />
     </Shell>

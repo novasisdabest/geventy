@@ -20,6 +20,15 @@ export interface OnlinePlayer {
   attendee_id: string;
   display_name: string;
   avatar_seed: string;
+  is_display?: boolean;
+}
+
+export interface ActiveBlock {
+  id: string;
+  type: "game" | "custom" | "slideshow" | "message_wall";
+  title: string;
+  gameSlug?: string;
+  config?: Record<string, unknown>;
 }
 
 interface GameState {
@@ -39,11 +48,16 @@ interface GameState {
   myVote: string | null;
   myFactSubmitted: boolean;
 
+  // Active block (display/projector)
+  activeBlock: ActiveBlock | null;
+
   // Online presence
   onlinePlayers: OnlinePlayer[];
 
   // Actions
   setEventContext: (eventId: string, programId: string | null) => void;
+  setActiveBlock: (block: ActiveBlock) => void;
+  clearActiveBlock: () => void;
   setPhase: (phase: GameState["phase"]) => void;
   showFact: (round: number, total: number, data: WhoAmIRoundData) => void;
   castVote: (attendeeId: string) => void;
@@ -66,6 +80,7 @@ const initialState = {
   scores: {},
   myVote: null,
   myFactSubmitted: false,
+  activeBlock: null,
   onlinePlayers: [],
 };
 
@@ -73,6 +88,10 @@ export const useGameStore = create<GameState>((set) => ({
   ...initialState,
 
   setEventContext: (eventId, programId) => set({ eventId, programId }),
+
+  setActiveBlock: (block) => set({ activeBlock: block, phase: "lobby" }),
+
+  clearActiveBlock: () => set({ activeBlock: null }),
 
   setPhase: (phase) => set({ phase, myVote: null }),
 
