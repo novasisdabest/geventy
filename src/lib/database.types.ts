@@ -68,11 +68,13 @@ export type Database = {
       }
       event_program: {
         Row: {
+          block_type: string
           completed_at: string | null
           config: Json
           created_at: string
+          duration_minutes: number | null
           event_id: string
-          game_id: string
+          game_id: string | null
           game_state: Json
           id: string
           sort_order: number
@@ -82,11 +84,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          block_type?: string
           completed_at?: string | null
           config?: Json
           created_at?: string
+          duration_minutes?: number | null
           event_id: string
-          game_id: string
+          game_id?: string | null
           game_state?: Json
           id?: string
           sort_order?: number
@@ -96,11 +100,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          block_type?: string
           completed_at?: string | null
           config?: Json
           created_at?: string
+          duration_minutes?: number | null
           event_id?: string
-          game_id?: string
+          game_id?: string | null
           game_state?: Json
           id?: string
           sort_order?: number
@@ -133,8 +139,10 @@ export type Database = {
           creator_id: string
           description: string | null
           event_date: string | null
+          event_type: string
           id: string
           is_active: boolean
+          seriousness_level: number
           settings: Json
           slug: string
           title: string
@@ -146,8 +154,10 @@ export type Database = {
           creator_id: string
           description?: string | null
           event_date?: string | null
+          event_type?: string
           id?: string
           is_active?: boolean
+          seriousness_level?: number
           settings?: Json
           slug: string
           title: string
@@ -159,8 +169,10 @@ export type Database = {
           creator_id?: string
           description?: string | null
           event_date?: string | null
+          event_type?: string
           id?: string
           is_active?: boolean
+          seriousness_level?: number
           settings?: Json
           slug?: string
           title?: string

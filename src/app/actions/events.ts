@@ -23,6 +23,7 @@ export async function createEventAction(formData: FormData) {
   const title = (formData.get("title") as string).trim();
   const description = (formData.get("description") as string | null)?.trim() || null;
   const eventDate = (formData.get("event_date") as string | null) || null;
+  const eventType = (formData.get("event_type") as string | null) || "custom";
 
   if (!title) return { error: "Nazev je povinny" };
 
@@ -33,6 +34,7 @@ export async function createEventAction(formData: FormData) {
       title,
       description,
       event_date: eventDate,
+      event_type: eventType,
       slug,
       creator_id: user.id,
     })
@@ -52,11 +54,20 @@ export async function updateEventAction(eventId: string, formData: FormData) {
   const title = (formData.get("title") as string).trim();
   const description = (formData.get("description") as string | null)?.trim() || null;
   const eventDate = (formData.get("event_date") as string | null) || null;
+  const eventType = (formData.get("event_type") as string | null) || undefined;
+  const seriousnessRaw = formData.get("seriousness_level") as string | null;
+  const seriousnessLevel = seriousnessRaw ? parseInt(seriousnessRaw, 10) : undefined;
 
   if (!title) return { error: "Nazev je povinny" };
 
+  const updates: Record<string, unknown> = { title, description, event_date: eventDate };
+  if (eventType) updates.event_type = eventType;
+  if (seriousnessLevel && seriousnessLevel >= 1 && seriousnessLevel <= 5) {
+    updates.seriousness_level = seriousnessLevel;
+  }
+
   const { error } = await from(supabase, "events")
-    .update({ title, description, event_date: eventDate })
+    .update(updates)
     .eq("id", eventId)
     .eq("creator_id", user.id);
 

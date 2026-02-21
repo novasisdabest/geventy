@@ -30,6 +30,7 @@ export async function startGameAction(eventId: string, gameId: string) {
     .insert({
       event_id: eventId,
       game_id: gameId,
+      block_type: "game",
       sort_order: nextOrder,
       status: "active",
       started_at: new Date().toISOString(),
