@@ -1,6 +1,6 @@
 "use client";
 
-import { QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useGameStore } from "@/stores/game-store";
 import { ResultsScreen } from "./ResultsScreen";
 
@@ -28,9 +28,17 @@ export function ProjectorScreen({ eventSlug, isFullscreen = false }: ProjectorSc
       {/* LOBBY */}
       {phase === "lobby" && (
         <div className="text-center z-10">
-          <QrCode size={isFullscreen ? 160 : 120} className="mx-auto mb-6 text-white opacity-90" />
+          <div className={`mx-auto mb-6 bg-white rounded-2xl inline-block ${isFullscreen ? "p-5" : "p-3"}`}>
+            <QRCodeSVG
+              value={`https://geventy.vercel.app/event/${eventSlug}`}
+              size={isFullscreen ? 180 : 120}
+              level="M"
+              bgColor="#ffffff"
+              fgColor="#0f172a"
+            />
+          </div>
           <h2 className={`font-black mb-2 italic uppercase ${isFullscreen ? "text-6xl" : "text-4xl"}`}>
-            geventy.com/{eventSlug}
+            geventy.com/event/{eventSlug}
           </h2>
           <p className={`text-slate-400 font-medium uppercase tracking-widest ${isFullscreen ? "text-2xl" : "text-xl"}`}>
             Naskenuj a pripoj se

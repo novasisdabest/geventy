@@ -1,6 +1,6 @@
 "use client";
 
-import { QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface WelcomeDisplayProps {
   eventTitle: string;
@@ -9,6 +9,8 @@ interface WelcomeDisplayProps {
 }
 
 export function WelcomeDisplay({ eventTitle, eventSlug, onlineCount }: WelcomeDisplayProps) {
+  const eventUrl = `https://geventy.vercel.app/event/${eventSlug}`;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-purple-900/20 via-slate-950 to-pink-900/20">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/5 via-transparent to-transparent" />
@@ -19,11 +21,17 @@ export function WelcomeDisplay({ eventTitle, eventSlug, onlineCount }: WelcomeDi
         </h1>
 
         <div className="flex flex-col items-center gap-6">
-          <div className="p-8 rounded-3xl bg-white/5 backdrop-blur-sm border border-white/10">
-            <QrCode size={180} className="text-white opacity-90" />
+          <div className="p-6 rounded-3xl bg-white">
+            <QRCodeSVG
+              value={eventUrl}
+              size={200}
+              level="M"
+              bgColor="#ffffff"
+              fgColor="#0f172a"
+            />
           </div>
           <p className="text-3xl font-black italic uppercase tracking-wider text-purple-300">
-            geventy.com/{eventSlug}
+            geventy.com/event/{eventSlug}
           </p>
         </div>
 
