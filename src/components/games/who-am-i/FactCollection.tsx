@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { from } from "@/lib/supabase/typed";
 import { useGameStore } from "@/stores/game-store";
 
 interface FactCollectionProps {
@@ -23,8 +24,7 @@ export function FactCollection({ programId, attendeeId }: FactCollectionProps) {
     setSubmitting(true);
     const supabase = createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from("game_responses") as any).insert({
+    const { error } = await from(supabase, "game_responses").insert({
       program_id: programId,
       attendee_id: attendeeId,
       response_type: "fact_submission",
@@ -43,7 +43,7 @@ export function FactCollection({ programId, attendeeId }: FactCollectionProps) {
     return (
       <div className="bg-slate-900 border-2 border-green-600/50 rounded-2xl p-8 text-center">
         <CheckCircle2 size={48} className="mx-auto mb-4 text-green-500" />
-        <h3 className="text-xl font-black italic uppercase mb-2">Odesláno!</h3>
+        <h3 className="text-xl font-black italic uppercase mb-2">Odeslano!</h3>
         <p className="text-slate-400 text-sm">
           Tvuj fakt byl ulozeny. Cekej, az moderator spusti hru.
         </p>
@@ -54,7 +54,7 @@ export function FactCollection({ programId, attendeeId }: FactCollectionProps) {
   return (
     <div className="bg-slate-900 border-2 border-purple-600/50 rounded-2xl p-6">
       <h3 className="text-lg font-black italic uppercase mb-2">
-        Napis zajímavy fakt o sobe
+        Napis zajimavy fakt o sobe
       </h3>
       <p className="text-slate-400 text-sm mb-4">
         Neco, co o tobe ostatni nevi. Ostatni budou hadat, kdo to napsal.

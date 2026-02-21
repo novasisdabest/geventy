@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Play, SkipForward, StopCircle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { from } from "@/lib/supabase/typed";
 import { useGameStore } from "@/stores/game-store";
 import type { Tables } from "@/lib/database.types";
 
@@ -34,8 +35,7 @@ export function ModeratorControls({
   // Load submitted facts
   const loadFacts = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("game_responses")
+    const { data } = await from(supabase, "game_responses")
       .select("attendee_id, payload")
       .eq("program_id", programId)
       .eq("response_type", "fact_submission")

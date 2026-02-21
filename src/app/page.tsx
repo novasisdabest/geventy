@@ -22,17 +22,17 @@ export default function HomePage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
           <Link
-            href="/event/demo/moderator"
+            href="/dashboard/new"
             className="group relative px-8 py-4 bg-white text-black rounded-2xl font-black text-lg hover:scale-105 transition-all active:scale-95 overflow-hidden text-center"
           >
             <span className="relative z-10">VYTVORIT EVENT</span>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-100 to-white opacity-0 group-hover:opacity-100 transition-opacity" />
           </Link>
           <Link
-            href="/event/demo"
+            href="/dashboard"
             className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-lg border-2 border-slate-800 hover:border-purple-500 transition-all active:scale-95 text-center"
           >
-            VSTOUPIT DO HRY
+            MOJE AKCE
           </Link>
         </div>
       </div>

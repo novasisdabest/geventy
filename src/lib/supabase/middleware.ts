@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PROTECTED_PREFIXES = ["/dashboard"];
+const MODERATOR_PATTERN = /^\/event\/[^/]+\/moderator/;
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -25,7 +28,29 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  const isProtected =
+    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) ||
+    MODERATOR_PATTERN.test(pathname);
+
+  if (!user && isProtected) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Redirect authed users away from auth pages
+  if (user && (pathname === "/login" || pathname === "/signup")) {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = "/dashboard";
+    return NextResponse.redirect(dashboardUrl);
+  }
 
   return supabaseResponse;
 }
