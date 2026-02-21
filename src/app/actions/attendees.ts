@@ -55,6 +55,38 @@ export async function removeAttendeeAction(eventId: string, attendeeId: string) 
   return { success: true };
 }
 
+export async function selfJoinAction(eventId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Musis byt prihlasen" };
+
+  // Fetch profile for display name
+  const { data: profile } = await from(supabase, "profiles")
+    .select("full_name, email")
+    .eq("id", user.id)
+    .single();
+
+  const displayName = profile?.full_name || user.email?.split("@")[0] || "Host";
+
+  const { error } = await from(supabase, "event_attendees")
+    .insert({
+      event_id: eventId,
+      email: user.email!,
+      display_name: displayName,
+      user_id: user.id,
+      status: "confirmed" as const,
+      joined_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    if (error.code === "23505") return { success: true }; // already joined
+    return { error: error.message };
+  }
+
+  revalidatePath(`/event`);
+  return { success: true };
+}
+
 export async function acceptInviteAction(token: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

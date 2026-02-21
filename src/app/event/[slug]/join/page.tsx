@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { from } from "@/lib/supabase/typed";
-import { acceptInviteAction } from "@/app/actions/attendees";
+import { acceptInviteAction, selfJoinAction } from "@/app/actions/attendees";
 import Link from "next/link";
 
 interface JoinPageProps {
@@ -75,12 +75,13 @@ export default async function JoinPage({ params, searchParams }: JoinPageProps) 
     redirect(`/event/${slug}`);
   }
 
-  // Fetch profile
-  const { data: profile } = await from(supabase, "profiles")
-    .select("full_name, email")
-    .eq("id", user.id)
-    .single();
+  // Self-join: auto-create attendee record for any authenticated user
+  const result = await selfJoinAction(event.id);
+  if (!result.error) {
+    redirect(`/event/${slug}`);
+  }
 
+  // Fallback if self-join fails
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <div className="text-center space-y-6 max-w-md">
@@ -90,17 +91,14 @@ export default async function JoinPage({ params, searchParams }: JoinPageProps) 
         <h1 className="text-2xl font-black italic uppercase text-white">
           {event.title}
         </h1>
-        <p className="text-sm text-slate-400">
-          Prihlaseny jako {profile?.full_name ?? profile?.email ?? user.email}
-        </p>
-        <p className="text-xs text-slate-600">
-          Pro pripojeni k akci potrebujes odkaz s pozvankou od organizatora.
+        <p className="text-sm text-red-400">
+          Pripojeni se nezdarilo. Zkus to prosim znovu.
         </p>
         <Link
-          href="/"
-          className="inline-block px-6 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm border border-slate-700 hover:border-purple-500 transition-colors"
+          href={`/event/${slug}/join`}
+          className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm transition-colors"
         >
-          Zpet na uvod
+          Zkusit znovu
         </Link>
       </div>
     </div>
