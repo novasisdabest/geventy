@@ -21,6 +21,7 @@ interface WelcomeDisplayProps {
   messages?: SocialMessage[];
   photos?: SocialPhoto[];
   legendaryScore?: number;
+  eventDate?: string;
 }
 
 export function WelcomeDisplay({
@@ -31,6 +32,7 @@ export function WelcomeDisplay({
   messages = [],
   photos = [],
   legendaryScore = 0,
+  eventDate,
 }: WelcomeDisplayProps) {
   const hasSocialContent = messages.length > 0 || photos.length > 0;
   const [slide, setSlide] = useState<"roster" | "wall">("roster");
@@ -58,6 +60,7 @@ export function WelcomeDisplay({
           onlinePlayers={onlinePlayers}
           eventTitle={eventTitle}
           eventSlug={eventSlug}
+          eventDate={eventDate}
         />
       </div>
 

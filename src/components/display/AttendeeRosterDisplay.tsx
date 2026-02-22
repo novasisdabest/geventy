@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { OnlinePlayer } from "@/stores/game-store";
 
@@ -15,6 +16,7 @@ interface AttendeeRosterDisplayProps {
   onlinePlayers: OnlinePlayer[];
   eventTitle: string;
   eventSlug: string;
+  eventDate?: string;
 }
 
 type AttendeeState = "online" | "confirmed" | "invited";
@@ -53,14 +55,49 @@ const badgeStyles: Record<AttendeeState, { label: string; className: string }> =
   },
 };
 
+function useCountdown(eventDate?: string) {
+  const [remaining, setRemaining] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!eventDate) return;
+
+    function tick() {
+      const diff = new Date(eventDate!).getTime() - Date.now();
+      if (diff <= 0) {
+        setRemaining(null);
+        return;
+      }
+      setRemaining({
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
+      });
+    }
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [eventDate]);
+
+  return remaining;
+}
+
 export function AttendeeRosterDisplay({
   attendees,
   onlinePlayers,
   eventTitle,
   eventSlug,
+  eventDate,
 }: AttendeeRosterDisplayProps) {
   const eventUrl = `https://geventy.vercel.app/event/${eventSlug}`;
   const onlineCount = onlinePlayers.filter((p) => !p.is_display).length;
+  const countdown = useCountdown(eventDate);
 
   // Sort: online first, then confirmed, then invited
   const sorted = [...attendees].sort((a, b) => {
@@ -89,6 +126,29 @@ export function AttendeeRosterDisplay({
             Kdo dorazi?
           </p>
         </div>
+
+        {/* Countdown timer */}
+        {countdown && (
+          <div className="flex items-center gap-3">
+            {[
+              { value: countdown.days, label: "DNI" },
+              { value: countdown.hours, label: "HOD" },
+              { value: countdown.minutes, label: "MIN" },
+              { value: countdown.seconds, label: "SEK" },
+            ]
+              .filter((unit, i) => i > 0 || unit.value > 0)
+              .map((unit) => (
+                <div key={unit.label} className="flex flex-col items-center">
+                  <span className="text-5xl font-black tabular-nums text-white bg-slate-800/80 border border-purple-500/30 rounded-xl px-4 py-2 min-w-[80px] text-center">
+                    {String(unit.value).padStart(2, "0")}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 mt-1">
+                    {unit.label}
+                  </span>
+                </div>
+              ))}
+          </div>
+        )}
 
         {/* Main layout: attendee cards wrapping around centered QR */}
         <div className="w-full flex flex-wrap items-center justify-center gap-3">

@@ -11,7 +11,7 @@ export default async function LivePage({ params }: LivePageProps) {
   const supabase = await createClient();
 
   const { data: events } = await from(supabase, "events")
-    .select("id, title, slug")
+    .select("id, title, slug, event_date")
     .eq("slug", slug)
     .eq("is_active", true);
 
@@ -68,6 +68,7 @@ export default async function LivePage({ params }: LivePageProps) {
       initialScore={totalScore}
       initialMessages={(messages ?? []) as { id: string; display_name: string; content: string; created_at: string }[]}
       initialPhotos={(photos ?? []) as { id: string; display_name: string; url: string; created_at: string }[]}
+      eventDate={event.event_date ?? undefined}
     />
   );
 }

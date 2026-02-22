@@ -19,7 +19,7 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
 
   // Fetch event
   const { data: events } = await from(supabase, "events")
-    .select("id, title, slug, creator_id, live_code")
+    .select("id, title, slug, creator_id, live_code, event_date")
     .eq("slug", slug);
 
   const event = events?.[0];
@@ -125,6 +125,7 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
         initialProgramId={activeProgramId}
         initialAchievements={achievementsList}
         initialScore={initialScore}
+        eventDate={event.event_date ?? undefined}
       />
     </Shell>
   );

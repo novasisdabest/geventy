@@ -140,6 +140,34 @@ export async function updateTimelineBlockAction(
   return { success: true };
 }
 
+export async function reorderTimelineBlocksBulkAction(
+  eventId: string,
+  orderedBlockIds: string[]
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Neautorizovany pristup" };
+
+  if (!(await verifyOwnership(supabase, eventId, user.id))) {
+    return { error: "Event nenalezen" };
+  }
+
+  // Update all sort_order values in a single pass
+  const updates = orderedBlockIds.map((id, index) =>
+    from(supabase, "event_program")
+      .update({ sort_order: index })
+      .eq("id", id)
+      .eq("event_id", eventId)
+  );
+
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { error: failed.error.message };
+
+  revalidatePath(`/dashboard/${eventId}`);
+  return { success: true };
+}
+
 export async function applyTimelineTemplateAction(eventId: string, eventType: EventType) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

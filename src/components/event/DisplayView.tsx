@@ -50,9 +50,10 @@ interface DisplayViewProps {
   initialScore?: number;
   initialMessages?: SocialMessageInit[];
   initialPhotos?: SocialPhotoInit[];
+  eventDate?: string;
 }
 
-export function DisplayView({ event, attendees, initialAchievements, initialScore, initialMessages, initialPhotos }: DisplayViewProps) {
+export function DisplayView({ event, attendees, initialAchievements, initialScore, initialMessages, initialPhotos, eventDate }: DisplayViewProps) {
   const activeBlock = useGameStore((s) => s.activeBlock);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const socialMessages = useGameStore((s) => s.socialMessages);
@@ -95,6 +96,7 @@ export function DisplayView({ event, attendees, initialAchievements, initialScor
         messages={socialMessages}
         photos={socialPhotos}
         legendaryScore={legendaryScore}
+        eventDate={eventDate}
       />
     );
   }

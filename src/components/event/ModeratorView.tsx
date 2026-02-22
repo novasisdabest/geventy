@@ -1,13 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Flame, Trophy } from "lucide-react";
+import {
+  Users, Gamepad2, Home, Play, Monitor, LayoutList, X, Flame, Trophy,
+  Check, GripVertical, SkipForward, Square, Clock, Pause, Circle,
+} from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
 import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
-import { startGameAction } from "@/app/actions/program";
+import { startGameAction, activateBlockAction, advanceProgramAction, deactivateProgramAction } from "@/app/actions/program";
+import { reorderTimelineBlocksBulkAction } from "@/app/actions/timeline";
 import type { Tables } from "@/lib/database.types";
 import type { ActiveBlock } from "@/stores/game-store";
 
@@ -37,18 +58,172 @@ interface ModeratorViewProps {
   initialProgramId: string | null;
   initialAchievements?: AchievementInit[];
   initialScore?: number;
+  eventDate?: string;
 }
 
-export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks, initialProgramId, initialAchievements, initialScore }: ModeratorViewProps) {
+// -- Helpers --
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getBlockTypeBadge(blockType: string): { label: string; className: string } {
+  switch (blockType) {
+    case "game":
+      return { label: "Hra", className: "bg-purple-500/20 text-purple-400 border-purple-500/30" };
+    case "slideshow":
+      return { label: "Slideshow", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" };
+    case "message_wall":
+      return { label: "Zpravy", className: "bg-green-500/20 text-green-400 border-green-500/30" };
+    case "custom":
+      return { label: "Vlastni", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
+    default:
+      return { label: blockType, className: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+  }
+}
+
+// -- Sortable block component --
+
+function SortableBlock({
+  block,
+  status,
+  startTime,
+  endTime,
+  isActive,
+}: {
+  block: ProgramBlock;
+  status: "completed" | "active" | "pending";
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: block.id, disabled: status !== "pending" });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const badge = getBlockTypeBadge(block.block_type);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-stretch gap-0 ${isDragging ? "opacity-50" : ""}`}
+    >
+      {/* Grip handle */}
+      <div
+        className={`flex items-center px-1 shrink-0 ${
+          status === "pending" ? "cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400" : "text-slate-800 cursor-default"
+        }`}
+        {...(status === "pending" ? { ...attributes, ...listeners } : {})}
+      >
+        <GripVertical size={14} />
+      </div>
+
+      {/* Timeline dot + line */}
+      <div className="flex flex-col items-center shrink-0 w-6">
+        <div className="flex-1 w-px bg-slate-700" />
+        <div className="shrink-0 my-1">
+          {status === "completed" ? (
+            <div className="w-5 h-5 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center">
+              <Check size={10} className="text-green-400" />
+            </div>
+          ) : status === "active" ? (
+            <div className="w-5 h-5 rounded-full bg-purple-500/30 border-2 border-purple-400 flex items-center justify-center animate-pulse">
+              <Play size={8} className="text-purple-300" />
+            </div>
+          ) : (
+            <div className="w-4 h-4 rounded-full bg-slate-800 border border-slate-600 mx-0.5" />
+          )}
+        </div>
+        <div className="flex-1 w-px bg-slate-700" />
+      </div>
+
+      {/* Block content */}
+      <div
+        className={`flex-1 p-3 rounded-xl border transition-colors my-0.5 ${
+          isActive
+            ? "bg-purple-600/20 border-purple-500/50"
+            : status === "completed"
+            ? "bg-slate-800/20 border-slate-800/50 opacity-60"
+            : "bg-slate-800/30 border-slate-800"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-bold text-slate-300 block truncate">
+              {block.title || block.gameName || "Blok"}
+            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${badge.className}`}>
+                {badge.label}
+              </span>
+              {block.duration_minutes && (
+                <span className="text-[10px] text-slate-600 flex items-center gap-0.5">
+                  <Clock size={9} /> {block.duration_minutes} min
+                </span>
+              )}
+            </div>
+          </div>
+          <span className="text-[10px] text-slate-500 tabular-nums whitespace-nowrap shrink-0">
+            {startTime} — {endTime}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Main component --
+
+export function ModeratorView({
+  event,
+  liveCode,
+  attendees,
+  gamesLibrary,
+  blocks: initialBlocks,
+  initialProgramId,
+  initialAchievements,
+  initialScore,
+  eventDate,
+}: ModeratorViewProps) {
   const [programId, setProgramId] = useState<string | null>(initialProgramId);
   const [activeGameSlug, setActiveGameSlug] = useState<string | null>(
     initialProgramId ? "who-am-i" : null
   );
   const [showLegend, setShowLegend] = useState(false);
+  const [blocks, setBlocks] = useState<ProgramBlock[]>(initialBlocks);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const advancingRef = useRef(false);
+
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const legendaryScore = useGameStore((s) => s.legendaryScore);
   const achievements = useGameStore((s) => s.achievements);
   const activeBlock = useGameStore((s) => s.activeBlock);
+
+  // Derive program state from blocks
+  const activeBlockData = blocks.find((b) => b.status === "active");
+  const hasActiveBlock = !!activeBlockData;
+  const hasPendingBlocks = blocks.some((b) => b.status === "pending");
+  const programRunning = hasActiveBlock;
+  const programFinished = blocks.length > 0 && blocks.every((b) => b.status === "completed");
 
   useEffect(() => {
     if (initialProgramId) {
@@ -65,6 +240,233 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
     displayName: "Moderator",
     isModerator: true,
   });
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // -- Computed times --
+  function computeBlockTimes(): { startTime: string; endTime: string }[] {
+    let cursor: Date;
+
+    // Use the first block's started_at if available, otherwise use eventDate, otherwise now
+    const firstStarted = blocks.find((b) => b.started_at);
+    if (firstStarted?.started_at) {
+      cursor = new Date(firstStarted.started_at);
+    } else if (eventDate) {
+      cursor = new Date(eventDate);
+    } else {
+      cursor = new Date();
+    }
+
+    return blocks.map((block) => {
+      const start = new Date(cursor);
+      const duration = (block.duration_minutes ?? 10) * 60 * 1000;
+      const end = new Date(cursor.getTime() + duration);
+      cursor = end;
+      return { startTime: formatTime(start), endTime: formatTime(end) };
+    });
+  }
+
+  const blockTimes = computeBlockTimes();
+
+  // -- Elapsed timer for active block --
+  useEffect(() => {
+    if (!activeBlockData?.started_at || isPaused) {
+      return;
+    }
+
+    function tick() {
+      const started = new Date(activeBlockData!.started_at!).getTime();
+      setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+    }
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeBlockData?.started_at, isPaused]);
+
+  // -- Auto-advance timer --
+  const handleAdvanceProgram = useCallback(async () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+
+    const result = await advanceProgramAction(event.id);
+
+    if (result.error) {
+      advancingRef.current = false;
+      return;
+    }
+
+    if (result.finished) {
+      // Program complete
+      sendCommand("block_deactivate");
+      useGameStore.getState().clearActiveBlock();
+      useGameStore.getState().reset();
+      setBlocks((prev) => prev.map((b) => b.status === "active" ? { ...b, status: "completed" as const, completed_at: new Date().toISOString() } : b));
+      setElapsedSeconds(0);
+      advancingRef.current = false;
+      return;
+    }
+
+    if (result.block) {
+      const newBlock = result.block;
+      // Update local blocks state
+      setBlocks((prev) =>
+        prev.map((b) => {
+          if (b.status === "active") return { ...b, status: "completed" as const, completed_at: new Date().toISOString() };
+          if (b.id === newBlock.id) return { ...b, status: "active" as const, started_at: newBlock.started_at };
+          return b;
+        })
+      );
+
+      // Find game slug for the new block
+      const matchingBlock = blocks.find((b) => b.id === newBlock.id);
+      const blockType = (newBlock.block_type || "custom") as ActiveBlock["type"];
+      const payload: Record<string, unknown> = {
+        id: newBlock.id,
+        type: blockType,
+        title: newBlock.title || "Blok",
+        gameSlug: matchingBlock?.gameSlug,
+        config: newBlock.config as Record<string, unknown> | undefined,
+      };
+
+      // For game blocks, also start the game in DB
+      if (blockType === "game" && newBlock.game_id) {
+        const game = gamesLibrary.find((g) => g.id === newBlock.game_id);
+        if (game) {
+          const gameResult = await startGameAction(event.id, game.id);
+          if (!gameResult.error && gameResult.programId) {
+            setProgramId(gameResult.programId);
+            setActiveGameSlug(game.slug);
+            useGameStore.getState().setEventContext(event.id, gameResult.programId);
+          }
+          payload.gameSlug = game.slug;
+        }
+      }
+
+      sendCommand("block_activate", payload);
+      useGameStore.getState().setActiveBlock({
+        id: newBlock.id,
+        type: blockType,
+        title: newBlock.title || "Blok",
+        gameSlug: matchingBlock?.gameSlug,
+        config: newBlock.config as Record<string, unknown> | undefined,
+      });
+      setElapsedSeconds(0);
+    }
+
+    advancingRef.current = false;
+  }, [event.id, blocks, gamesLibrary, sendCommand]);
+
+  useEffect(() => {
+    if (!activeBlockData?.started_at || !activeBlockData.duration_minutes || isPaused) {
+      if (autoAdvanceRef.current) {
+        clearInterval(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+      return;
+    }
+
+    const durationMs = activeBlockData.duration_minutes * 60 * 1000;
+
+    autoAdvanceRef.current = setInterval(() => {
+      const started = new Date(activeBlockData.started_at!).getTime();
+      const elapsed = Date.now() - started;
+      if (elapsed >= durationMs) {
+        handleAdvanceProgram();
+      }
+    }, 1000);
+
+    return () => {
+      if (autoAdvanceRef.current) {
+        clearInterval(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+    };
+  }, [activeBlockData?.id, activeBlockData?.started_at, activeBlockData?.duration_minutes, isPaused, handleAdvanceProgram]);
+
+  // -- Auto-start if event_date is in the past --
+  useEffect(() => {
+    if (!eventDate) return;
+    if (blocks.length === 0) return;
+
+    const eventTime = new Date(eventDate).getTime();
+    if (eventTime > Date.now()) return;
+
+    // Check if any block is active or completed
+    const hasStarted = blocks.some((b) => b.status === "active" || b.status === "completed");
+    if (hasStarted) return;
+
+    // Auto-start the first pending block
+    handleStartProgram();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // -- Handlers --
+
+  async function handleStartProgram() {
+    const firstPending = blocks.find((b) => b.status === "pending");
+    if (!firstPending) return;
+
+    const result = await activateBlockAction(event.id, firstPending.id);
+    if (result.error) return;
+
+    setBlocks((prev) =>
+      prev.map((b) =>
+        b.id === firstPending.id
+          ? { ...b, status: "active" as const, started_at: new Date().toISOString() }
+          : b
+      )
+    );
+
+    const blockType = (firstPending.block_type || "custom") as ActiveBlock["type"];
+    const payload: Record<string, unknown> = {
+      id: firstPending.id,
+      type: blockType,
+      title: firstPending.title || "Blok",
+      gameSlug: firstPending.gameSlug,
+      config: firstPending.config as Record<string, unknown> | undefined,
+    };
+
+    // For game blocks, also start the game in DB
+    if (blockType === "game" && firstPending.game_id) {
+      const game = gamesLibrary.find((g) => g.id === firstPending.game_id);
+      if (game) {
+        const gameResult = await startGameAction(event.id, game.id);
+        if (!gameResult.error && gameResult.programId) {
+          setProgramId(gameResult.programId);
+          setActiveGameSlug(game.slug);
+          useGameStore.getState().setEventContext(event.id, gameResult.programId);
+        }
+        payload.gameSlug = game.slug;
+      }
+    }
+
+    sendCommand("block_activate", payload);
+    useGameStore.getState().setActiveBlock({
+      id: firstPending.id,
+      type: blockType,
+      title: firstPending.title || "Blok",
+      gameSlug: firstPending.gameSlug,
+      config: firstPending.config as Record<string, unknown> | undefined,
+    });
+    setElapsedSeconds(0);
+  }
+
+  async function handleStopProgram() {
+    await deactivateProgramAction(event.id);
+    sendCommand("block_deactivate");
+    useGameStore.getState().clearActiveBlock();
+    useGameStore.getState().reset();
+    setBlocks((prev) =>
+      prev.map((b) => b.status === "active" ? { ...b, status: "completed" as const, completed_at: new Date().toISOString() } : b)
+    );
+    setElapsedSeconds(0);
+    setIsPaused(false);
+  }
 
   async function handleStartGame(game: Tables<"games_library">, broadcastToDisplay = false) {
     const result = await startGameAction(event.id, game.id);
@@ -92,35 +494,6 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
     }
   }
 
-  function handleActivateBlock(block: ProgramBlock) {
-    const blockType = (block.block_type || "custom") as ActiveBlock["type"];
-    const payload: Record<string, unknown> = {
-      id: block.id,
-      type: blockType,
-      title: block.title || "Blok",
-      gameSlug: block.gameSlug,
-      config: block.config as Record<string, unknown> | undefined,
-    };
-
-    // For game blocks, also start the game in DB
-    if (blockType === "game" && block.game_id) {
-      const game = gamesLibrary.find((g) => g.id === block.game_id);
-      if (game) {
-        handleStartGame(game);
-        payload.gameSlug = game.slug;
-      }
-    }
-
-    sendCommand("block_activate", payload);
-    useGameStore.getState().setActiveBlock({
-      id: block.id,
-      type: blockType,
-      title: block.title || "Blok",
-      gameSlug: block.gameSlug,
-      config: block.config as Record<string, unknown> | undefined,
-    });
-  }
-
   function handleDeactivateBlock() {
     sendCommand("block_deactivate");
     useGameStore.getState().clearActiveBlock();
@@ -144,6 +517,31 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
       });
     }
   }
+
+  async function handleDragEnd(dragEvent: DragEndEvent) {
+    const { active, over } = dragEvent;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = blocks.findIndex((b) => b.id === active.id);
+    const newIndex = blocks.findIndex((b) => b.id === over.id);
+
+    const reordered = arrayMove(blocks, oldIndex, newIndex);
+    setBlocks(reordered);
+
+    await reorderTimelineBlocksBulkAction(
+      event.id,
+      reordered.map((b) => b.id)
+    );
+  }
+
+  // Active block elapsed / remaining
+  const activeDuration = activeBlockData?.duration_minutes
+    ? activeBlockData.duration_minutes * 60
+    : null;
+  const remainingSeconds = activeDuration ? Math.max(0, activeDuration - elapsedSeconds) : null;
+  const progressPercent = activeDuration
+    ? Math.min(100, (elapsedSeconds / activeDuration) * 100)
+    : 0;
 
   return (
     <>
@@ -195,9 +593,9 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
             />
           )}
 
-          {!programId && (
+          {!programId && !programRunning && (
             <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 text-center text-sm text-slate-500">
-              Vyber minihru z knihovny na pravo pro zahajeni.
+              Spust program nebo vyber minihru z knihovny na pravo.
             </div>
           )}
         </div>
@@ -292,56 +690,115 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
             </button>
           </div>
 
-          {/* Program blocks */}
+          {/* Program timeline */}
           {blocks.length > 0 && (
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-sm flex items-center gap-2 italic uppercase">
                   <LayoutList size={16} className="text-purple-400" /> Program
                 </h3>
-                {activeBlock && (
-                  <button
-                    onClick={handleDeactivateBlock}
-                    className="flex items-center gap-1 text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    <X size={12} /> Deaktivovat
-                  </button>
+                {programFinished && (
+                  <span className="text-[10px] font-bold text-green-400 flex items-center gap-1">
+                    <Check size={12} /> Dokonceno
+                  </span>
                 )}
               </div>
-              <div className="space-y-2">
-                {blocks.map((block) => {
-                  const isActive = activeBlock?.id === block.id;
-                  return (
-                    <button
-                      key={block.id}
-                      onClick={() => !isActive && handleActivateBlock(block)}
-                      disabled={isActive}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors group ${
-                        isActive
-                          ? "bg-purple-600/20 border-purple-500/50"
-                          : "bg-slate-800/30 border-slate-800 hover:border-purple-500/50"
-                      }`}
-                    >
-                      <div className="text-left">
-                        <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">
-                          {block.title || block.gameName || "Blok"}
+
+              {/* Program controls */}
+              <div className="mb-4 space-y-2">
+                {!programRunning && !programFinished && hasPendingBlocks && (
+                  <button
+                    onClick={handleStartProgram}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition-colors"
+                  >
+                    <Play size={14} /> Spustit program
+                  </button>
+                )}
+
+                {programRunning && (
+                  <>
+                    {/* Active block info bar */}
+                    <div className="bg-slate-800/50 rounded-xl p-3 border border-purple-500/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                          <Circle size={8} className="fill-purple-400" /> Prave hraje
                         </span>
-                        <p className="text-[10px] text-slate-600 mt-0.5 capitalize">
-                          {block.block_type === "game" ? block.gameName || "Hra" : block.block_type}
-                        </p>
+                        <span className="text-xs font-black tabular-nums text-white">
+                          {formatElapsed(elapsedSeconds)}
+                          {activeDuration && (
+                            <span className="text-slate-500"> / {formatElapsed(activeDuration)}</span>
+                          )}
+                        </span>
                       </div>
-                      {isActive ? (
-                        <Play size={14} className="text-green-400" />
-                      ) : (
-                        <ChevronRight
-                          size={14}
-                          className="text-slate-600 group-hover:text-purple-400 transition-colors"
-                        />
+                      {activeDuration && (
+                        <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-1000 ${
+                              progressPercent >= 100 ? "bg-red-500" : progressPercent >= 80 ? "bg-amber-500" : "bg-purple-500"
+                            }`}
+                            style={{ width: `${Math.min(100, progressPercent)}%` }}
+                          />
+                        </div>
                       )}
-                    </button>
-                  );
-                })}
+                      {remainingSeconds !== null && remainingSeconds <= 0 && (
+                        <p className="text-[10px] text-red-400 font-bold mt-1.5">
+                          Cas vyprsel — automaticky prechod
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Control buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIsPaused(!isPaused)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                      >
+                        {isPaused ? <Play size={12} /> : <Pause size={12} />}
+                        {isPaused ? "Pokracovat" : "Pozastavit"}
+                      </button>
+                      {hasPendingBlocks && (
+                        <button
+                          onClick={handleAdvanceProgram}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                        >
+                          <SkipForward size={12} /> Dalsi blok
+                        </button>
+                      )}
+                      <button
+                        onClick={handleStopProgram}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                      >
+                        <Square size={10} />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
+
+              {/* Sortable timeline blocks */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={blocks.map((b) => b.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-0">
+                    {blocks.map((block, i) => (
+                      <SortableBlock
+                        key={block.id}
+                        block={block}
+                        status={block.status as "completed" | "active" | "pending"}
+                        startTime={blockTimes[i]?.startTime ?? "--:--"}
+                        endTime={blockTimes[i]?.endTime ?? "--:--"}
+                        isActive={activeBlock?.id === block.id}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 
@@ -369,7 +826,7 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
                   {programId && activeGameSlug === game.slug ? (
                     <Play size={14} className="text-green-400" />
                   ) : (
-                    <ChevronRight
+                    <Gamepad2
                       size={14}
                       className="text-slate-600 group-hover:text-purple-400 transition-colors"
                     />
@@ -380,6 +837,7 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
           </div>
         </div>
       </div>
+
       {/* Scoring legend modal */}
       {showLegend && (
         <div
