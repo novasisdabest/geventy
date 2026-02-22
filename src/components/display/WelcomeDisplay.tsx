@@ -34,12 +34,18 @@ export function WelcomeDisplay({
   photos = [],
   legendaryScore = 0,
 }: WelcomeDisplayProps) {
-  const [slide, setSlide] = useState<"qr" | "roster" | "wall">("qr");
+  const hasSocialContent = messages.length > 0 || photos.length > 0;
+  const [slide, setSlide] = useState<"qr" | "roster" | "wall">(
+    hasSocialContent ? "roster" : "qr"
+  );
 
   useEffect(() => {
     if (attendees.length === 0) return;
 
-    const rotation: ("qr" | "roster" | "wall")[] = ["qr", "roster", "wall"];
+    const rotation: ("qr" | "roster" | "wall")[] = hasSocialContent
+      ? ["roster", "wall"]
+      : ["qr", "roster"];
+
     const interval = setInterval(() => {
       setSlide((prev) => {
         const idx = rotation.indexOf(prev);
@@ -48,7 +54,7 @@ export function WelcomeDisplay({
     }, 15_000);
 
     return () => clearInterval(interval);
-  }, [attendees.length]);
+  }, [attendees.length, hasSocialContent]);
 
   const eventUrl = `https://geventy.vercel.app/event/${eventSlug}`;
 
