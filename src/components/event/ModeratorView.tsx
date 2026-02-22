@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Camera, Zap, Sparkles, Flame, Trophy } from "lucide-react";
+import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Camera, Zap, Sparkles, Flame, Trophy, Trash2 } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
 import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
 import { startGameAction } from "@/app/actions/program";
-import { awardAchievementAction } from "@/app/actions/achievements";
+import { awardAchievementAction, removeAchievementAction } from "@/app/actions/achievements";
 import type { Tables } from "@/lib/database.types";
 import type { ActiveBlock, Achievement } from "@/stores/game-store";
 
@@ -46,8 +46,11 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
     initialProgramId ? "who-am-i" : null
   );
   const [awarding, setAwarding] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const legendaryScore = useGameStore((s) => s.legendaryScore);
+  const achievements = useGameStore((s) => s.achievements);
   const activeBlock = useGameStore((s) => s.activeBlock);
 
   useEffect(() => {
@@ -137,6 +140,16 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
     const achievement = result.achievement as Achievement;
     useGameStore.getState().addAchievement(achievement);
     sendCommand("achievement_awarded", achievement as unknown as Record<string, unknown>);
+  }
+
+  async function handleRemoveAchievement(achievementId: string) {
+    setRemovingId(achievementId);
+    const result = await removeAchievementAction(event.id, achievementId);
+    setRemovingId(null);
+    if ("error" in result) return;
+
+    useGameStore.getState().removeAchievement(achievementId);
+    sendCommand("achievement_removed", { id: achievementId });
   }
 
   function handleToggleLegendary() {
@@ -257,9 +270,13 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
               <h3 className="font-bold text-sm flex items-center gap-2 italic uppercase">
                 <Flame size={16} className="text-amber-400" /> Legendaryness
               </h3>
-              <span className="text-2xl font-black italic text-purple-400 tabular-nums">
+              <button
+                onClick={() => setShowScoreModal(true)}
+                className="text-2xl font-black italic text-purple-400 tabular-nums hover:text-purple-300 transition-colors cursor-pointer"
+                title="Zobrazit detail"
+              >
                 {legendaryScore}
-              </span>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
@@ -410,6 +427,69 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
           </div>
         </div>
       </div>
+      {/* Score detail modal */}
+      {showScoreModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowScoreModal(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-5 border-b border-slate-800">
+              <h3 className="font-black italic uppercase text-sm flex items-center gap-2">
+                <Flame size={16} className="text-amber-400" /> Score detail
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-black italic text-purple-400 tabular-nums">
+                  {legendaryScore}
+                </span>
+                <button
+                  onClick={() => setShowScoreModal(false)}
+                  className="text-slate-500 hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-2">
+              {achievements.length === 0 ? (
+                <p className="text-sm text-slate-600 text-center py-4">Zatim zadne body.</p>
+              ) : (
+                [...achievements].reverse().map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-800 group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-300 block truncate">
+                        {a.title}
+                      </span>
+                      <span className="text-[10px] text-slate-600">
+                        {new Date(a.awarded_at).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-black text-purple-400 tabular-nums">
+                        +{a.points}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveAchievement(a.id)}
+                        disabled={removingId === a.id}
+                        className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                        title="Odebrat"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

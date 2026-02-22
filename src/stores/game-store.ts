@@ -97,6 +97,7 @@ interface GameState {
   setOnlinePlayers: (players: OnlinePlayer[]) => void;
   setMyFactSubmitted: (submitted: boolean) => void;
   addAchievement: (achievement: Achievement) => void;
+  removeAchievement: (achievementId: string) => void;
   setAchievements: (achievements: Achievement[], score: number) => void;
   addSocialMessage: (message: SocialMessage) => void;
   addSocialPhoto: (photo: SocialPhoto) => void;
@@ -162,6 +163,15 @@ export const useGameStore = create<GameState>((set) => ({
       achievements: [...state.achievements, achievement],
       legendaryScore: state.legendaryScore + achievement.points,
     })),
+
+  removeAchievement: (achievementId) =>
+    set((state) => {
+      const removed = state.achievements.find((a) => a.id === achievementId);
+      return {
+        achievements: state.achievements.filter((a) => a.id !== achievementId),
+        legendaryScore: state.legendaryScore - (removed?.points ?? 0),
+      };
+    }),
 
   setAchievements: (achievements, score) => set({ achievements, legendaryScore: score }),
 

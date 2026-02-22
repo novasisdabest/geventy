@@ -39,6 +39,30 @@ export async function awardAchievementAction(
   return { achievement: data };
 }
 
+export async function removeAchievementAction(eventId: string, achievementId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Neautorizovany pristup" };
+
+  // Verify caller owns the event
+  const { data: event } = await from(supabase, "events")
+    .select("id")
+    .eq("id", eventId)
+    .eq("creator_id", user.id)
+    .single();
+
+  if (!event) return { error: "Event nenalezen" };
+
+  const { error } = await from(supabase, "event_achievements")
+    .delete()
+    .eq("id", achievementId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
 export async function getEventAchievementsAction(eventId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
