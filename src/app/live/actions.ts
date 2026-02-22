@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { from } from "@/lib/supabase/typed";
 
 export async function lookupLiveCode(code: string) {
-  if (!/^[A-Z]{4}$/.test(code)) {
+  if (!/^[0-9]{6}$/.test(code)) {
     return { error: "Neplatny kod" };
   }
 

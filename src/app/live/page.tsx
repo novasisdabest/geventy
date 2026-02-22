@@ -13,7 +13,7 @@ export default function LiveCodePage() {
             Projektor
           </h1>
           <p className="text-slate-500 text-sm mt-2">
-            Zadej 4-pismenný kod z moderatorske obrazovky
+            Zadej 6-mistny kod z moderatorske obrazovky
           </p>
         </div>
         <LiveCodeEntry />

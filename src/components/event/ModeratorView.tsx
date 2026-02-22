@@ -171,11 +171,11 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
             <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-tight">
               Kod pro<br />projektor
             </div>
-            <div className="flex gap-1">
-              {liveCode.split("").map((char, i) => (
+            <div className="flex gap-0.5">
+              {liveCode.trim().split("").map((char, i) => (
                 <span
                   key={i}
-                  className="w-8 h-10 flex items-center justify-center bg-purple-600/20 border border-purple-500/40 rounded-lg text-lg font-black text-purple-300 font-mono"
+                  className="w-7 h-9 flex items-center justify-center bg-purple-600/20 border border-purple-500/40 rounded-lg text-base font-black text-purple-300 font-mono tabular-nums"
                 >
                   {char}
                 </span>
