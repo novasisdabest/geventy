@@ -140,6 +140,30 @@ export async function updateTimelineBlockAction(
   return { success: true };
 }
 
+export async function updateBlockConfigAction(
+  eventId: string,
+  blockId: string,
+  config: Record<string, unknown>
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Neautorizovany pristup" };
+
+  if (!(await verifyOwnership(supabase, eventId, user.id))) {
+    return { error: "Event nenalezen" };
+  }
+
+  const { error } = await from(supabase, "event_program")
+    .update({ config })
+    .eq("id", blockId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/dashboard/${eventId}`);
+  return { success: true };
+}
+
 export async function reorderTimelineBlocksBulkAction(
   eventId: string,
   orderedBlockIds: string[]

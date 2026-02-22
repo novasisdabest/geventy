@@ -369,7 +369,9 @@ export type Database = {
       }
       games_library: {
         Row: {
+          author: string
           category: Database["public"]["Enums"]["game_category"]
+          config_schema: Json
           created_at: string
           default_config: Json
           description: string | null
@@ -379,11 +381,16 @@ export type Database = {
           is_published: boolean
           max_players: number | null
           min_players: number
+          moderation_steps: Json
           name: string
+          price: number | null
           slug: string
+          version: string
         }
         Insert: {
+          author?: string
           category: Database["public"]["Enums"]["game_category"]
+          config_schema?: Json
           created_at?: string
           default_config?: Json
           description?: string | null
@@ -393,11 +400,16 @@ export type Database = {
           is_published?: boolean
           max_players?: number | null
           min_players?: number
+          moderation_steps?: Json
           name: string
+          price?: number | null
           slug: string
+          version?: string
         }
         Update: {
+          author?: string
           category?: Database["public"]["Enums"]["game_category"]
+          config_schema?: Json
           created_at?: string
           default_config?: Json
           description?: string | null
@@ -407,8 +419,11 @@ export type Database = {
           is_published?: boolean
           max_players?: number | null
           min_players?: number
+          moderation_steps?: Json
           name?: string
+          price?: number | null
           slug?: string
+          version?: string
         }
         Relationships: []
       }

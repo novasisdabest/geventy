@@ -75,11 +75,19 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
     gamesList.map((g) => [g.id, g])
   );
   const blocksList = (programBlocks ?? []) as Tables<"event_program">[];
-  const blocksWithGameSlug = blocksList.map((block) => ({
-    ...block,
-    gameSlug: block.game_id ? gamesById[block.game_id]?.slug : undefined,
-    gameName: block.game_id ? gamesById[block.game_id]?.name : undefined,
-  }));
+  const blocksWithGameSlug = blocksList.map((block) => {
+    const game = block.game_id ? gamesById[block.game_id] : undefined;
+    return {
+      ...block,
+      gameSlug: game?.slug,
+      gameName: game?.name,
+      gameAuthor: game?.author,
+      gamePrice: game?.price ?? null,
+      gameVersion: game?.version,
+      configSchema: game?.config_schema as { id: string; label: string; type: "number" | "text" | "select" | "boolean"; defaultValue: string | number | boolean; options?: string[] }[] ?? [],
+      moderationSteps: game?.moderation_steps as { id: number; label: string }[] ?? [],
+    };
+  });
 
   // Fetch achievements for legendaryness index
   const { data: achievements } = await from(supabase, "event_achievements")

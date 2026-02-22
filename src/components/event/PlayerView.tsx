@@ -2,12 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Trophy, MessageSquare, Home, Users, Send, Camera, Loader2, Image as ImageIcon } from "lucide-react";
+import { Trophy, MessageSquare, Home, Users, Send, Camera, Loader2 } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
-import { FactCollection } from "@/components/games/who-am-i/FactCollection";
-import { VotingScreen } from "@/components/games/who-am-i/VotingScreen";
-import { ResultsScreen } from "@/components/games/who-am-i/ResultsScreen";
+import { loadGameModule, type GameModuleComponents } from "@/lib/game-modules/registry";
 import { sendMessageAction, uploadPhotoAction } from "@/app/actions/social";
 import { createClient } from "@/lib/supabase/client";
 import { from } from "@/lib/supabase/typed";
@@ -42,10 +40,28 @@ interface PlayerViewProps {
 
 export function PlayerView({ event, attendee, initialMessages, initialPhotos }: PlayerViewProps) {
   const [programId, setProgramId] = useState<string | null>(null);
+  const [gameMod, setGameMod] = useState<GameModuleComponents | null>(null);
+  const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
   const phase = useGameStore((s) => s.phase);
+  const activeBlock = useGameStore((s) => s.activeBlock);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const socialMessages = useGameStore((s) => s.socialMessages);
   const socialPhotos = useGameStore((s) => s.socialPhotos);
+
+  const gameSlug = activeBlock?.gameSlug;
+
+  // Load game module dynamically
+  useEffect(() => {
+    if (!gameSlug || gameSlug === loadedSlug) return;
+    let cancelled = false;
+    loadGameModule(gameSlug).then((mod) => {
+      if (!cancelled && mod) {
+        setGameMod(mod);
+        setLoadedSlug(gameSlug);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [gameSlug, loadedSlug]);
 
   useEffect(() => {
     if (initialMessages && initialMessages.length > 0) {
@@ -159,13 +175,13 @@ export function PlayerView({ event, attendee, initialMessages, initialPhotos }: 
           </div>
         )}
 
-        {phase === "collecting" && programId && (
-          <FactCollection programId={programId} attendeeId={attendee.id} />
+        {phase === "collecting" && programId && gameMod && (
+          <gameMod.PlayerCollecting programId={programId} attendeeId={attendee.id} />
         )}
 
-        {phase === "voting" && <VotingScreen onVote={handleVote} />}
+        {phase === "voting" && gameMod && <gameMod.PlayerVoting onVote={handleVote} />}
 
-        {phase === "results" && <ResultsScreen />}
+        {phase === "results" && gameMod && <gameMod.PlayerResults />}
 
         {phase === "finished" && (
           <div className="bg-slate-900 border-2 border-green-600/50 rounded-2xl p-8 text-center">

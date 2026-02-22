@@ -70,6 +70,9 @@ interface GameState {
   myVote: string | null;
   myFactSubmitted: boolean;
 
+  // Generic game round data (used by two-truths and future games)
+  gameRoundData: Record<string, unknown> | null;
+
   // Active block (display/projector)
   activeBlock: ActiveBlock | null;
 
@@ -96,6 +99,7 @@ interface GameState {
   updateScores: (scores: Record<string, number>) => void;
   setOnlinePlayers: (players: OnlinePlayer[]) => void;
   setMyFactSubmitted: (submitted: boolean) => void;
+  setGameRoundData: (data: Record<string, unknown> | null) => void;
   addAchievement: (achievement: Achievement) => void;
   removeAchievement: (achievementId: string) => void;
   setAchievements: (achievements: Achievement[], score: number) => void;
@@ -117,6 +121,7 @@ const initialState = {
   scores: {},
   myVote: null,
   myFactSubmitted: false,
+  gameRoundData: null,
   activeBlock: null,
   achievements: [],
   legendaryScore: 0,
@@ -157,6 +162,8 @@ export const useGameStore = create<GameState>((set) => ({
   setOnlinePlayers: (players) => set({ onlinePlayers: players }),
 
   setMyFactSubmitted: (submitted) => set({ myFactSubmitted: submitted }),
+
+  setGameRoundData: (data) => set({ gameRoundData: data }),
 
   addAchievement: (achievement) =>
     set((state) => {

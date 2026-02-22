@@ -101,6 +101,20 @@ export function useEventChannel({
           });
           break;
 
+        case "game_round":
+          store.setGameRoundData(cmd.data ?? null);
+          store.setPhase((cmd.data?.phase as string ?? "voting") as typeof store.phase);
+          store.updateVotes({});
+          break;
+
+        case "game_results":
+          store.setGameRoundData(cmd.data ?? null);
+          if (cmd.data?.votes) {
+            store.updateVotes(cmd.data.votes as Record<string, number>);
+          }
+          store.setPhase("results");
+          break;
+
         case "block_deactivate":
           store.clearActiveBlock();
           store.reset();

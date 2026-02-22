@@ -25,16 +25,21 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
-import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
-import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
 import { startGameAction, activateBlockAction, advanceProgramAction, deactivateProgramAction } from "@/app/actions/program";
-import { reorderTimelineBlocksBulkAction } from "@/app/actions/timeline";
+import { reorderTimelineBlocksBulkAction, updateBlockConfigAction } from "@/app/actions/timeline";
+import { loadGameModule, type GameModuleComponents } from "@/lib/game-modules/registry";
+import type { ModuleConfigField, ModerationStep } from "@/lib/game-modules/types";
 import type { Tables } from "@/lib/database.types";
 import type { ActiveBlock } from "@/stores/game-store";
 
 interface ProgramBlock extends Tables<"event_program"> {
   gameSlug?: string;
   gameName?: string;
+  gameAuthor?: string;
+  gamePrice?: number | null;
+  gameVersion?: string;
+  configSchema?: ModuleConfigField[];
+  moderationSteps?: ModerationStep[];
 }
 
 interface AchievementInit {
@@ -213,6 +218,12 @@ export function ModeratorView({
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const advancingRef = useRef(false);
 
+  // Dynamic game module
+  const [loadedModule, setLoadedModule] = useState<GameModuleComponents | null>(null);
+  const [loadedModuleSlug, setLoadedModuleSlug] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [blockConfig, setBlockConfig] = useState<Record<string, unknown>>({});
+
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const legendaryScore = useGameStore((s) => s.legendaryScore);
   const achievements = useGameStore((s) => s.achievements);
@@ -233,6 +244,30 @@ export function ModeratorView({
       useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
     }
   }, [event.id, initialProgramId, initialAchievements, initialScore]);
+
+  // Load game module dynamically when slug changes
+  useEffect(() => {
+    if (!activeGameSlug || activeGameSlug === loadedModuleSlug) return;
+    let cancelled = false;
+    loadGameModule(activeGameSlug).then((mod) => {
+      if (!cancelled && mod) {
+        setLoadedModule(mod);
+        setLoadedModuleSlug(activeGameSlug);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeGameSlug, loadedModuleSlug]);
+
+  // Sync config from active block
+  useEffect(() => {
+    const active = blocks.find((b) => b.status === "active");
+    if (active) {
+      const cfg = (active.config ?? {}) as Record<string, unknown>;
+      setBlockConfig(cfg);
+      const gs = (active.game_state ?? {}) as Record<string, unknown>;
+      setCompletedSteps((gs.completedSteps as number[]) ?? []);
+    }
+  }, [blocks]);
 
   const { sendCommand } = useEventChannel({
     eventId: event.id,
@@ -582,14 +617,27 @@ export function ModeratorView({
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Main projection area */}
         <div className="lg:col-span-2 space-y-6">
-          <ProjectorScreen eventSlug={event.slug} />
+          {/* Projector preview — uses loaded module or fallback */}
+          {loadedModule && activeGameSlug ? (
+            <loadedModule.ProjectorScreen eventSlug={event.slug} />
+          ) : (
+            <div className="aspect-video bg-slate-900 rounded-3xl border-2 border-slate-800 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-transparent opacity-50" />
+              <div className="z-10 text-center">
+                <Gamepad2 size={48} className="mx-auto mb-4 text-slate-700" />
+                <p className="text-slate-600 text-sm">Zadna hra neni aktivni</p>
+              </div>
+            </div>
+          )}
 
-          {programId && activeGameSlug === "who-am-i" && (
-            <ModeratorControls
+          {/* Dynamic game moderator controls */}
+          {programId && activeGameSlug && loadedModule && (
+            <loadedModule.ModeratorControls
               programId={programId}
               eventId={event.id}
               sendCommand={sendCommand}
               attendees={attendees}
+              config={blockConfig}
             />
           )}
 
@@ -799,6 +847,141 @@ export function ModeratorView({
                   </div>
                 </SortableContext>
               </DndContext>
+
+              {/* Active block metadata + config + checklist */}
+              {activeBlockData && (() => {
+                const activeBlockMeta = blocks.find((b) => b.id === activeBlockData.id);
+                const schema = activeBlockMeta?.configSchema ?? [];
+                const steps = activeBlockMeta?.moderationSteps ?? [];
+                const author = activeBlockMeta?.gameAuthor;
+                const price = activeBlockMeta?.gamePrice;
+                const version = activeBlockMeta?.gameVersion;
+
+                return (
+                  <div className="mt-4 space-y-3">
+                    {/* Marketplace metadata */}
+                    {author && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/30 border border-slate-800">
+                        <span className="text-[10px] text-slate-500">{author}</span>
+                        {version && (
+                          <span className="text-[9px] text-slate-600 ml-auto">v{version}</span>
+                        )}
+                        {price != null && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                            PRO
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Config editor */}
+                    {schema.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Nastaveni
+                        </h4>
+                        {schema.map((field) => {
+                          const value = blockConfig[field.id] ?? field.defaultValue;
+                          return (
+                            <div key={field.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-800/30 border border-slate-800">
+                              <label className="text-[11px] text-slate-400">{field.label}</label>
+                              {field.type === "boolean" ? (
+                                <button
+                                  onClick={async () => {
+                                    const next = { ...blockConfig, [field.id]: !value };
+                                    setBlockConfig(next);
+                                    await updateBlockConfigAction(event.id, activeBlockData.id, next);
+                                  }}
+                                  className={`w-8 h-4 rounded-full transition-colors relative ${
+                                    value ? "bg-purple-500" : "bg-slate-700"
+                                  }`}
+                                >
+                                  <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                                    value ? "left-4.5 translate-x-0.5" : "left-0.5"
+                                  }`} />
+                                </button>
+                              ) : field.type === "select" ? (
+                                <select
+                                  value={String(value)}
+                                  onChange={async (e) => {
+                                    const next = { ...blockConfig, [field.id]: e.target.value };
+                                    setBlockConfig(next);
+                                    await updateBlockConfigAction(event.id, activeBlockData.id, next);
+                                  }}
+                                  className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-0.5 text-[11px] text-white"
+                                >
+                                  {field.options?.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type={field.type === "number" ? "number" : "text"}
+                                  value={String(value)}
+                                  onChange={(e) => {
+                                    const val = field.type === "number" ? Number(e.target.value) : e.target.value;
+                                    setBlockConfig({ ...blockConfig, [field.id]: val });
+                                  }}
+                                  onBlur={async () => {
+                                    await updateBlockConfigAction(event.id, activeBlockData.id, blockConfig);
+                                  }}
+                                  className="w-16 bg-slate-700 border border-slate-600 rounded-lg px-2 py-0.5 text-[11px] text-white text-right"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Moderation checklist */}
+                    {steps.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Postup moderatora
+                        </h4>
+                        {steps.map((step) => {
+                          const done = completedSteps.includes(step.id);
+                          return (
+                            <button
+                              key={step.id}
+                              onClick={async () => {
+                                const next = done
+                                  ? completedSteps.filter((s) => s !== step.id)
+                                  : [...completedSteps, step.id];
+                                setCompletedSteps(next);
+                                // Persist to game_state
+                                const supabase = (await import("@/lib/supabase/client")).createClient();
+                                const { from: fromTyped } = await import("@/lib/supabase/typed");
+                                const currentState = (activeBlockData.game_state ?? {}) as Record<string, unknown>;
+                                await fromTyped(supabase, "event_program")
+                                  .update({ game_state: { ...currentState, completedSteps: next } })
+                                  .eq("id", activeBlockData.id);
+                              }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-colors ${
+                                done
+                                  ? "bg-green-500/10 border-green-500/30"
+                                  : "bg-slate-800/30 border-slate-800 hover:border-slate-700"
+                              }`}
+                            >
+                              <div className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+                                done ? "bg-green-500 border-green-500" : "border-slate-600"
+                              }`}>
+                                {done && <Check size={10} className="text-white" />}
+                              </div>
+                              <span className={`text-[11px] ${
+                                done ? "text-green-400 line-through" : "text-slate-400"
+                              }`}>
+                                {step.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -816,12 +999,20 @@ export function ModeratorView({
                   className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/30 border border-slate-800 hover:border-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors group"
                 >
                   <div className="text-left">
-                    <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">
-                      {game.name}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">
+                        {game.name}
+                      </span>
+                      {game.price != null && (
+                        <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          PRO
+                        </span>
+                      )}
+                    </div>
                     {game.description && (
                       <p className="text-[10px] text-slate-600 mt-0.5">{game.description}</p>
                     )}
+                    <p className="text-[9px] text-slate-700 mt-0.5">{game.author}</p>
                   </div>
                   {programId && activeGameSlug === game.slug ? (
                     <Play size={14} className="text-green-400" />
