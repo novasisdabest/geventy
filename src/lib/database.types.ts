@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      event_achievements: {
+        Row: {
+          achievement_type: string
+          awarded_at: string
+          created_at: string
+          event_id: string
+          id: string
+          metadata: Json | null
+          points: number
+          title: string
+        }
+        Insert: {
+          achievement_type: string
+          awarded_at?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          metadata?: Json | null
+          points?: number
+          title: string
+        }
+        Update: {
+          achievement_type?: string
+          awarded_at?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+          points?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_achievements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_attendees: {
         Row: {
           created_at: string
@@ -314,6 +355,7 @@ export type Database = {
     }
     Functions: {
       accept_invite: { Args: { token: string }; Returns: string }
+      is_event_member: { Args: { p_event_id: string }; Returns: boolean }
     }
     Enums: {
       attendee_status: "invited" | "confirmed" | "declined" | "maybe"

@@ -2,18 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X } from "lucide-react";
+import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Camera, Zap, Sparkles, Flame, Trophy } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
 import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
 import { startGameAction } from "@/app/actions/program";
+import { awardAchievementAction } from "@/app/actions/achievements";
 import type { Tables } from "@/lib/database.types";
-import type { ActiveBlock } from "@/stores/game-store";
+import type { ActiveBlock, Achievement } from "@/stores/game-store";
 
 interface ProgramBlock extends Tables<"event_program"> {
   gameSlug?: string;
   gameName?: string;
+}
+
+interface AchievementInit {
+  id: string;
+  achievement_type: string;
+  title: string;
+  points: number;
+  awarded_at: string;
 }
 
 interface ModeratorViewProps {
@@ -26,17 +35,28 @@ interface ModeratorViewProps {
   gamesLibrary: Tables<"games_library">[];
   blocks: ProgramBlock[];
   initialProgramId: string | null;
+  initialAchievements?: AchievementInit[];
+  initialScore?: number;
 }
 
-export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialProgramId }: ModeratorViewProps) {
+export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialProgramId, initialAchievements, initialScore }: ModeratorViewProps) {
   const [programId, setProgramId] = useState<string | null>(initialProgramId);
   const [activeGameSlug, setActiveGameSlug] = useState<string | null>(
     initialProgramId ? "who-am-i" : null
   );
+  const [awarding, setAwarding] = useState(false);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
+  const legendaryScore = useGameStore((s) => s.legendaryScore);
+  const activeBlock = useGameStore((s) => s.activeBlock);
 
   if (initialProgramId) {
     useGameStore.getState().setEventContext(event.id, initialProgramId);
+  }
+
+  // Hydrate achievements on mount
+  const hasHydrated = useGameStore((s) => s.achievements.length > 0 || s.legendaryScore > 0);
+  if (!hasHydrated && initialAchievements && initialAchievements.length > 0) {
+    useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
   }
 
   const { sendCommand } = useEventChannel({
@@ -45,8 +65,6 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
     displayName: "Moderator",
     isModerator: true,
   });
-
-  const activeBlock = useGameStore((s) => s.activeBlock);
 
   async function handleStartGame(game: Tables<"games_library">, broadcastToDisplay = false) {
     const result = await startGameAction(event.id, game.id);
@@ -107,6 +125,36 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
     sendCommand("block_deactivate");
     useGameStore.getState().clearActiveBlock();
     useGameStore.getState().reset();
+  }
+
+  async function handleAwardAchievement(type: string, title: string, points: number) {
+    if (awarding) return;
+    setAwarding(true);
+    const result = await awardAchievementAction(event.id, type, title, points);
+    setAwarding(false);
+    if ("error" in result) return;
+
+    const achievement = result.achievement as Achievement;
+    useGameStore.getState().addAchievement(achievement);
+    sendCommand("achievement_awarded", achievement as unknown as Record<string, unknown>);
+  }
+
+  function handleToggleLegendary() {
+    if (activeBlock?.type === "legendary") {
+      handleDeactivateBlock();
+    } else {
+      const blockData = {
+        id: "legendary",
+        type: "legendary",
+        title: "Legendaryness Index",
+      };
+      sendCommand("block_activate", blockData);
+      useGameStore.getState().setActiveBlock({
+        id: "legendary",
+        type: "legendary",
+        title: "Legendaryness Index",
+      });
+    }
   }
 
   return (
@@ -189,6 +237,77 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Legendaryness Index */}
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-sm flex items-center gap-2 italic uppercase">
+                <Flame size={16} className="text-amber-400" /> Legendaryness
+              </h3>
+              <span className="text-2xl font-black italic text-purple-400 tabular-nums">
+                {legendaryScore}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                onClick={() => handleAwardAchievement("group_photo", "Skupinove foto", 50)}
+                disabled={awarding}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
+              >
+                <Camera size={14} className="text-purple-400 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-bold text-slate-300 block">Foto</span>
+                  <span className="text-[10px] text-purple-400 font-bold">+50</span>
+                </div>
+              </button>
+              <button
+                onClick={() => handleAwardAchievement("icebreaker_complete", "Icebreaker hotov", 50)}
+                disabled={awarding}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
+              >
+                <Zap size={14} className="text-purple-400 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-bold text-slate-300 block">Icebreaker</span>
+                  <span className="text-[10px] text-purple-400 font-bold">+50</span>
+                </div>
+              </button>
+              <button
+                onClick={() => handleAwardAchievement("midnight_surprise", "Pulnocni prekvapeni", 75)}
+                disabled={awarding}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
+              >
+                <Sparkles size={14} className="text-purple-400 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-bold text-slate-300 block">Midnight</span>
+                  <span className="text-[10px] text-purple-400 font-bold">+75</span>
+                </div>
+              </button>
+              <button
+                onClick={() => handleAwardAchievement("table_dance", "Table dance!", 200)}
+                disabled={awarding}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-pink-500/30 hover:border-pink-500/60 disabled:opacity-50 transition-colors text-left"
+              >
+                <Flame size={14} className="text-pink-400 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-bold text-pink-300 block">Table Dance</span>
+                  <span className="text-[10px] text-pink-400 font-bold">+200</span>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={handleToggleLegendary}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
+                activeBlock?.type === "legendary"
+                  ? "bg-amber-500/20 border border-amber-500/50 text-amber-300 hover:bg-amber-500/30"
+                  : "bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30"
+              }`}
+            >
+              <Monitor size={14} />
+              {activeBlock?.type === "legendary" ? "Skryt z platna" : "Zobrazit na platne"}
+            </button>
           </div>
 
           {/* Program blocks */}

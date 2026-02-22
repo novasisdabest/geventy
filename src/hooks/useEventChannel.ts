@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { useGameStore, type GameCommand, type OnlinePlayer, type ActiveBlock } from "@/stores/game-store";
+import { useGameStore, type GameCommand, type OnlinePlayer, type ActiveBlock, type Achievement } from "@/stores/game-store";
 
 interface UseEventChannelOptions {
   eventId: string;
@@ -103,6 +103,10 @@ export function useEventChannel({
         case "block_deactivate":
           store.clearActiveBlock();
           store.reset();
+          break;
+
+        case "achievement_awarded":
+          store.addAchievement(cmd.data as unknown as Achievement);
           break;
       }
     });

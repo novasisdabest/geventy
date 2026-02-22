@@ -81,6 +81,21 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
     gameName: block.game_id ? gamesById[block.game_id]?.name : undefined,
   }));
 
+  // Fetch achievements for legendaryness index
+  const { data: achievements } = await from(supabase, "event_achievements")
+    .select("id, achievement_type, title, points, awarded_at")
+    .eq("event_id", event.id)
+    .order("awarded_at", { ascending: true });
+
+  const achievementsList = (achievements ?? []) as {
+    id: string;
+    achievement_type: string;
+    title: string;
+    points: number;
+    awarded_at: string;
+  }[];
+  const initialScore = achievementsList.reduce((sum, a) => sum + a.points, 0);
+
   // Fetch active program
   const activeProgramId = blocksList.find(
     (b) => b.status === "pending" || b.status === "active"
@@ -107,6 +122,8 @@ export default async function ModeratorPage({ params }: ModeratorPageProps) {
         gamesLibrary={games ?? []}
         blocks={blocksWithGameSlug}
         initialProgramId={activeProgramId}
+        initialAchievements={achievementsList}
+        initialScore={initialScore}
       />
     </Shell>
   );

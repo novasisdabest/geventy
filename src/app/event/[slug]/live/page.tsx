@@ -33,10 +33,27 @@ export default async function LivePage({ params }: LivePageProps) {
     .eq("event_id", event.id)
     .order("created_at", { ascending: true });
 
+  // Fetch achievements for legendaryness index
+  const { data: achievements } = await from(supabase, "event_achievements")
+    .select("id, achievement_type, title, points, awarded_at")
+    .eq("event_id", event.id)
+    .order("awarded_at", { ascending: true });
+
+  const achievementsList = (achievements ?? []) as {
+    id: string;
+    achievement_type: string;
+    title: string;
+    points: number;
+    awarded_at: string;
+  }[];
+  const totalScore = achievementsList.reduce((sum, a) => sum + a.points, 0);
+
   return (
     <DisplayView
       event={{ id: event.id, slug: event.slug, title: event.title }}
       attendees={attendees ?? []}
+      initialAchievements={achievementsList}
+      initialScore={totalScore}
     />
   );
 }

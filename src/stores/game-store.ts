@@ -23,9 +23,17 @@ export interface OnlinePlayer {
   is_display?: boolean;
 }
 
+export interface Achievement {
+  id: string;
+  achievement_type: string;
+  title: string;
+  points: number;
+  awarded_at: string;
+}
+
 export interface ActiveBlock {
   id: string;
-  type: "game" | "custom" | "slideshow" | "message_wall";
+  type: "game" | "custom" | "slideshow" | "message_wall" | "legendary";
   title: string;
   gameSlug?: string;
   config?: Record<string, unknown>;
@@ -51,6 +59,10 @@ interface GameState {
   // Active block (display/projector)
   activeBlock: ActiveBlock | null;
 
+  // Legendaryness Index
+  achievements: Achievement[];
+  legendaryScore: number;
+
   // Online presence
   onlinePlayers: OnlinePlayer[];
 
@@ -66,6 +78,8 @@ interface GameState {
   updateScores: (scores: Record<string, number>) => void;
   setOnlinePlayers: (players: OnlinePlayer[]) => void;
   setMyFactSubmitted: (submitted: boolean) => void;
+  addAchievement: (achievement: Achievement) => void;
+  setAchievements: (achievements: Achievement[], score: number) => void;
   reset: () => void;
 }
 
@@ -81,6 +95,8 @@ const initialState = {
   myVote: null,
   myFactSubmitted: false,
   activeBlock: null,
+  achievements: [],
+  legendaryScore: 0,
   onlinePlayers: [],
 };
 
@@ -116,6 +132,14 @@ export const useGameStore = create<GameState>((set) => ({
   setOnlinePlayers: (players) => set({ onlinePlayers: players }),
 
   setMyFactSubmitted: (submitted) => set({ myFactSubmitted: submitted }),
+
+  addAchievement: (achievement) =>
+    set((state) => ({
+      achievements: [...state.achievements, achievement],
+      legendaryScore: state.legendaryScore + achievement.points,
+    })),
+
+  setAchievements: (achievements, score) => set({ achievements, legendaryScore: score }),
 
   reset: () => set(initialState),
 }));
