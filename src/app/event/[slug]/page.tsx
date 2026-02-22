@@ -68,6 +68,18 @@ export default async function EventPage({ params }: EventPageProps) {
     display_name: profile?.full_name ?? user.email?.split("@")[0] ?? "Host",
   };
 
+  // Fetch social wall data
+  const { data: messages } = await from(supabase, "event_messages")
+    .select("id, display_name, content, created_at")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: true })
+    .limit(50);
+
+  const { data: photos } = await from(supabase, "event_photos")
+    .select("id, display_name, url, created_at")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: false });
+
   return (
     <Shell
       user={{
@@ -80,6 +92,8 @@ export default async function EventPage({ params }: EventPageProps) {
       <PlayerView
         event={{ id: event.id, slug: event.slug, title: event.title }}
         attendee={{ id: playerAttendee.id, display_name: playerAttendee.display_name }}
+        initialMessages={(messages ?? []) as { id: string; display_name: string; content: string; created_at: string }[]}
+        initialPhotos={(photos ?? []) as { id: string; display_name: string; url: string; created_at: string }[]}
       />
     </Shell>
   );

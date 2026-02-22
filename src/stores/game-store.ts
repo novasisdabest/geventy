@@ -179,5 +179,14 @@ export const useGameStore = create<GameState>((set) => ({
 
   setSocialPhotos: (photos) => set({ socialPhotos: photos }),
 
-  reset: () => set(initialState),
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      // Preserve event-level state across game resets
+      onlinePlayers: state.onlinePlayers,
+      socialMessages: state.socialMessages,
+      socialPhotos: state.socialPhotos,
+      achievements: state.achievements,
+      legendaryScore: state.legendaryScore,
+    })),
 }));

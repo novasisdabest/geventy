@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Trophy, MessageSquare, Home, Users, Send, Camera, Loader2 } from "lucide-react";
+import { Trophy, MessageSquare, Home, Users, Send, Camera, Loader2, Image as ImageIcon } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { FactCollection } from "@/components/games/who-am-i/FactCollection";
@@ -11,6 +11,20 @@ import { ResultsScreen } from "@/components/games/who-am-i/ResultsScreen";
 import { sendMessageAction, uploadPhotoAction } from "@/app/actions/social";
 import { createClient } from "@/lib/supabase/client";
 import { from } from "@/lib/supabase/typed";
+
+interface SocialInit {
+  id: string;
+  display_name: string;
+  content: string;
+  created_at: string;
+}
+
+interface PhotoInit {
+  id: string;
+  display_name: string;
+  url: string;
+  created_at: string;
+}
 
 interface PlayerViewProps {
   event: {
@@ -22,12 +36,25 @@ interface PlayerViewProps {
     id: string;
     display_name: string;
   };
+  initialMessages?: SocialInit[];
+  initialPhotos?: PhotoInit[];
 }
 
-export function PlayerView({ event, attendee }: PlayerViewProps) {
+export function PlayerView({ event, attendee, initialMessages, initialPhotos }: PlayerViewProps) {
   const [programId, setProgramId] = useState<string | null>(null);
   const phase = useGameStore((s) => s.phase);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
+  const socialMessages = useGameStore((s) => s.socialMessages);
+  const socialPhotos = useGameStore((s) => s.socialPhotos);
+
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      useGameStore.getState().setSocialMessages(initialMessages);
+    }
+    if (initialPhotos && initialPhotos.length > 0) {
+      useGameStore.getState().setSocialPhotos(initialPhotos);
+    }
+  }, [initialMessages, initialPhotos]);
 
   useEffect(() => {
     async function loadProgram() {
@@ -150,11 +177,13 @@ export function PlayerView({ event, attendee }: PlayerViewProps) {
           </div>
         )}
 
-        {/* Social Wall Input */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+        {/* Social Wall */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
             Social Wall
           </h3>
+
+          {/* Input row */}
           <div className="flex gap-2">
             <input
               type="text"
@@ -195,6 +224,50 @@ export function PlayerView({ event, attendee }: PlayerViewProps) {
               className="hidden"
             />
           </div>
+
+          {/* Photos */}
+          {socialPhotos.length > 0 && (
+            <div className="space-y-2">
+              {socialPhotos.slice().reverse().map((photo) => (
+                <div key={photo.id} className="rounded-xl overflow-hidden border border-slate-700">
+                  <img
+                    src={photo.url}
+                    alt={`Foto od ${photo.display_name}`}
+                    className="w-full object-cover"
+                  />
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/80">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-[10px] font-black text-white">
+                      {photo.display_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-bold text-slate-300">{photo.display_name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
+          {socialMessages.length > 0 && (
+            <div className="space-y-2">
+              {socialMessages.slice().reverse().map((msg) => (
+                <div key={msg.id} className="flex gap-2.5 items-start">
+                  <div className="w-7 h-7 shrink-0 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-black text-white mt-0.5">
+                    {msg.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-purple-300">{msg.display_name}</span>
+                    <p className="text-sm text-slate-300 break-words">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {socialMessages.length === 0 && socialPhotos.length === 0 && (
+            <p className="text-xs text-slate-600 text-center py-2">
+              Zatim prazdno — bud prvni!
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

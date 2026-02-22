@@ -84,7 +84,7 @@ export function SocialWallSlide({
       />
 
       {/* Dark gradient overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/80" />
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/10" />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col justify-end p-8">
