@@ -146,7 +146,32 @@ export function useEventChannel({
 
     channelRef.current = channel;
 
+    // Re-track presence when tab becomes visible (mobile screen unlock, tab switch)
+    const presencePayload = {
+      attendee_id: attendeeId,
+      display_name: displayName,
+      avatar_seed: attendeeId.slice(0, 8),
+      is_moderator: isModerator,
+      is_display: isDisplay,
+    };
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && channelRef.current) {
+        channelRef.current.track(presencePayload);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Heartbeat: re-track every 30s to keep presence alive
+    const heartbeat = setInterval(() => {
+      if (channelRef.current) {
+        channelRef.current.track(presencePayload);
+      }
+    }, 30_000);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(heartbeat);
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
