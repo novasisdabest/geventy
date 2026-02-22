@@ -40,12 +40,12 @@ export function SocialWallSlide({
   // Reshuffle photo grid every 5s
   useEffect(() => {
     if (photos.length === 0) return;
-    setGridPhotos(shuffleArray(photos).slice(0, 9));
+    setGridPhotos(shuffleArray(photos).slice(0, 3));
 
     if (photos.length <= 9) return;
 
     const interval = setInterval(() => {
-      setGridPhotos(shuffleArray(photos).slice(0, 9));
+      setGridPhotos(shuffleArray(photos).slice(0, 3));
     }, 5000);
 
     return () => clearInterval(interval);
@@ -59,7 +59,7 @@ export function SocialWallSlide({
     <div className="min-h-screen relative overflow-hidden bg-slate-950">
       {/* Photo grid background */}
       {gridPhotos.length > 0 ? (
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-1 opacity-40">
+        <div className="absolute inset-0 grid grid-cols-3 grid-rows-1 gap-1 opacity-40">
           {gridPhotos.map((photo, i) => (
             <div key={`${photo.id}-${i}`} className="relative overflow-hidden">
               <img
