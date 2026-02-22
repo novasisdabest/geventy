@@ -28,7 +28,7 @@ export default async function HomePage() {
       {/* Hero */}
       <div className="py-12 md:py-24 text-center space-y-8 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-bold uppercase tracking-[0.2em]">
-          <Play size={12} fill="currentColor" /> Let&apos;s Party
+          <Play size={12} fill="currentColor" /> Zapoj svuj tym
         </div>
         <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-none italic uppercase">
           TVOJE AKCE. <br />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Camera, Zap, Sparkles, Flame, Trophy } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
@@ -31,6 +31,7 @@ interface ModeratorViewProps {
     slug: string;
     title: string;
   };
+  liveCode: string;
   attendees: Tables<"event_attendees">[];
   gamesLibrary: Tables<"games_library">[];
   blocks: ProgramBlock[];
@@ -39,7 +40,7 @@ interface ModeratorViewProps {
   initialScore?: number;
 }
 
-export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialProgramId, initialAchievements, initialScore }: ModeratorViewProps) {
+export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks, initialProgramId, initialAchievements, initialScore }: ModeratorViewProps) {
   const [programId, setProgramId] = useState<string | null>(initialProgramId);
   const [activeGameSlug, setActiveGameSlug] = useState<string | null>(
     initialProgramId ? "who-am-i" : null
@@ -49,15 +50,14 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
   const legendaryScore = useGameStore((s) => s.legendaryScore);
   const activeBlock = useGameStore((s) => s.activeBlock);
 
-  if (initialProgramId) {
-    useGameStore.getState().setEventContext(event.id, initialProgramId);
-  }
-
-  // Hydrate achievements on mount
-  const hasHydrated = useGameStore((s) => s.achievements.length > 0 || s.legendaryScore > 0);
-  if (!hasHydrated && initialAchievements && initialAchievements.length > 0) {
-    useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
-  }
+  useEffect(() => {
+    if (initialProgramId) {
+      useGameStore.getState().setEventContext(event.id, initialProgramId);
+    }
+    if (initialAchievements && initialAchievements.length > 0) {
+      useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
+    }
+  }, [event.id, initialProgramId, initialAchievements, initialScore]);
 
   const { sendCommand } = useEventChannel({
     eventId: event.id,
@@ -167,17 +167,29 @@ export function ModeratorView({ event, attendees, gamesLibrary, blocks, initialP
           <Home size={14} /> ZPET NA DASHBOARD
         </Link>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 bg-slate-900 border border-purple-500/30 rounded-2xl px-4 py-2">
+            <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-tight">
+              Kod pro<br />projektor
+            </div>
+            <div className="flex gap-1">
+              {liveCode.split("").map((char, i) => (
+                <span
+                  key={i}
+                  className="w-8 h-10 flex items-center justify-center bg-purple-600/20 border border-purple-500/40 rounded-lg text-lg font-black text-purple-300 font-mono"
+                >
+                  {char}
+                </span>
+              ))}
+            </div>
+          </div>
           <a
             href={`/event/${event.slug}/live`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors"
           >
-            <Monitor size={12} /> Otevrit projektor
+            <Monitor size={12} /> Projektor
           </a>
-          <div className="text-[10px] font-black tracking-widest text-slate-600 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-            {event.slug.toUpperCase()}
-          </div>
         </div>
       </div>
 

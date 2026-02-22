@@ -270,6 +270,7 @@ export type Database = {
           event_type: string
           id: string
           is_active: boolean
+          live_code: string
           seriousness_level: number
           settings: Json
           slug: string
@@ -285,6 +286,7 @@ export type Database = {
           event_type?: string
           id?: string
           is_active?: boolean
+          live_code?: string
           seriousness_level?: number
           settings?: Json
           slug: string
@@ -300,6 +302,7 @@ export type Database = {
           event_type?: string
           id?: string
           is_active?: boolean
+          live_code?: string
           seriousness_level?: number
           settings?: Json
           slug?: string
