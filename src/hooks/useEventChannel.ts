@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { useGameStore, type GameCommand, type OnlinePlayer, type ActiveBlock, type Achievement } from "@/stores/game-store";
+import { useGameStore, type GameCommand, type OnlinePlayer, type ActiveBlock, type Achievement, type SocialMessage, type SocialPhoto } from "@/stores/game-store";
 
 interface UseEventChannelOptions {
   eventId: string;
@@ -111,6 +111,15 @@ export function useEventChannel({
       }
     });
 
+    // Social wall broadcasts
+    channel.on("broadcast", { event: "social_message" }, ({ payload }) => {
+      useGameStore.getState().addSocialMessage(payload as SocialMessage);
+    });
+
+    channel.on("broadcast", { event: "social_photo" }, ({ payload }) => {
+      useGameStore.getState().addSocialPhoto(payload as SocialPhoto);
+    });
+
     // Live vote counter (lightweight broadcast from players)
     channel.on("broadcast", { event: "vote_cast" }, ({ payload }) => {
       if (isModerator || isDisplay) {
@@ -165,5 +174,27 @@ export function useEventChannel({
     [attendeeId]
   );
 
-  return { sendCommand, sendVote, channel: channelRef };
+  const sendSocialMessage = useCallback(
+    (msg: SocialMessage) => {
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "social_message",
+        payload: msg,
+      });
+    },
+    []
+  );
+
+  const sendSocialPhoto = useCallback(
+    (photo: SocialPhoto) => {
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "social_photo",
+        payload: photo,
+      });
+    },
+    []
+  );
+
+  return { sendCommand, sendVote, sendSocialMessage, sendSocialPhoto, channel: channelRef };
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { AttendeeRosterDisplay } from "@/components/display/AttendeeRosterDisplay";
-import type { OnlinePlayer } from "@/stores/game-store";
+import { SocialWallSlide } from "@/components/display/SocialWallSlide";
+import type { OnlinePlayer, SocialMessage, SocialPhoto } from "@/stores/game-store";
 
 interface Attendee {
   id: string;
@@ -18,6 +19,9 @@ interface WelcomeDisplayProps {
   onlineCount: number;
   attendees: Attendee[];
   onlinePlayers: OnlinePlayer[];
+  messages?: SocialMessage[];
+  photos?: SocialPhoto[];
+  legendaryScore?: number;
 }
 
 export function WelcomeDisplay({
@@ -26,15 +30,21 @@ export function WelcomeDisplay({
   onlineCount,
   attendees,
   onlinePlayers,
+  messages = [],
+  photos = [],
+  legendaryScore = 0,
 }: WelcomeDisplayProps) {
-  const [slide, setSlide] = useState<"qr" | "roster">("qr");
+  const [slide, setSlide] = useState<"qr" | "roster" | "wall">("qr");
 
   useEffect(() => {
-    // Only rotate if there are attendees to show
     if (attendees.length === 0) return;
 
+    const rotation: ("qr" | "roster" | "wall")[] = ["qr", "roster", "wall"];
     const interval = setInterval(() => {
-      setSlide((prev) => (prev === "qr" ? "roster" : "qr"));
+      setSlide((prev) => {
+        const idx = rotation.indexOf(prev);
+        return rotation[(idx + 1) % rotation.length];
+      });
     }, 15_000);
 
     return () => clearInterval(interval);
@@ -98,6 +108,20 @@ export function WelcomeDisplay({
           attendees={attendees}
           onlinePlayers={onlinePlayers}
           eventTitle={eventTitle}
+          eventSlug={eventSlug}
+        />
+      </div>
+
+      {/* Social Wall Slide */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+          slide === "wall" ? "opacity-100 z-10" : "opacity-0 z-0"
+        }`}
+      >
+        <SocialWallSlide
+          messages={messages}
+          photos={photos}
+          legendaryScore={legendaryScore}
           eventSlug={eventSlug}
         />
       </div>

@@ -35,6 +35,10 @@
   --tw-enter-scale: 0.95;
 }
 
+@utility slide-in-from-left {
+  --tw-enter-translate-x: -1rem;
+}
+
 @keyframes animate-in {
   from {
     opacity: var(--tw-enter-opacity, 1);

@@ -48,12 +48,26 @@ export default async function LivePage({ params }: LivePageProps) {
   }[];
   const totalScore = achievementsList.reduce((sum, a) => sum + a.points, 0);
 
+  // Fetch social wall data
+  const { data: messages } = await from(supabase, "event_messages")
+    .select("id, display_name, content, created_at")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: true })
+    .limit(50);
+
+  const { data: photos } = await from(supabase, "event_photos")
+    .select("id, display_name, url, created_at")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: false });
+
   return (
     <DisplayView
       event={{ id: event.id, slug: event.slug, title: event.title }}
       attendees={attendees ?? []}
       initialAchievements={achievementsList}
       initialScore={totalScore}
+      initialMessages={(messages ?? []) as { id: string; display_name: string; content: string; created_at: string }[]}
+      initialPhotos={(photos ?? []) as { id: string; display_name: string; url: string; created_at: string }[]}
     />
   );
 }

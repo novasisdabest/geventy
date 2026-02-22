@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Trophy, MessageSquare, Home, Users } from "lucide-react";
+import { Trophy, MessageSquare, Home, Users, Send, Camera, Loader2 } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { FactCollection } from "@/components/games/who-am-i/FactCollection";
 import { VotingScreen } from "@/components/games/who-am-i/VotingScreen";
 import { ResultsScreen } from "@/components/games/who-am-i/ResultsScreen";
+import { sendMessageAction, uploadPhotoAction } from "@/app/actions/social";
 import { createClient } from "@/lib/supabase/client";
 import { from } from "@/lib/supabase/typed";
 
@@ -47,11 +48,43 @@ export function PlayerView({ event, attendee }: PlayerViewProps) {
     loadProgram();
   }, [event.id]);
 
-  const { sendVote } = useEventChannel({
+  const [messageText, setMessageText] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { sendVote, sendSocialMessage, sendSocialPhoto } = useEventChannel({
     eventId: event.id,
     attendeeId: attendee.id,
     displayName: attendee.display_name,
   });
+
+  async function handleSendMessage() {
+    if (!messageText.trim() || sendingMessage) return;
+    setSendingMessage(true);
+    const result = await sendMessageAction(event.id, attendee.id, messageText);
+    if (result.success && result.message) {
+      sendSocialMessage(result.message);
+      useGameStore.getState().addSocialMessage(result.message);
+      setMessageText("");
+    }
+    setSendingMessage(false);
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || uploadingPhoto) return;
+    setUploadingPhoto(true);
+    const formData = new FormData();
+    formData.append("photo", file);
+    const result = await uploadPhotoAction(event.id, attendee.id, formData);
+    if (result.success && result.photo) {
+      sendSocialPhoto(result.photo);
+      useGameStore.getState().addSocialPhoto(result.photo);
+    }
+    setUploadingPhoto(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function handleVote(votedForAttendeeId: string) {
     useGameStore.getState().castVote(votedForAttendeeId);
@@ -116,6 +149,53 @@ export function PlayerView({ event, attendee }: PlayerViewProps) {
             <p className="text-slate-400 text-sm">Dekujeme za ucast.</p>
           </div>
         )}
+
+        {/* Social Wall Input */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            Social Wall
+          </h3>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+              placeholder="Napiste zpravu..."
+              maxLength={280}
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!messageText.trim() || sendingMessage}
+              className="bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl px-3 py-2 transition-colors"
+            >
+              {sendingMessage ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Send size={18} />
+              )}
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="bg-pink-600 hover:bg-pink-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl px-3 py-2 transition-colors"
+            >
+              {uploadingPhoto ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Camera size={18} />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">

@@ -31,6 +31,20 @@ export interface Achievement {
   awarded_at: string;
 }
 
+export interface SocialMessage {
+  id: string;
+  display_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface SocialPhoto {
+  id: string;
+  display_name: string;
+  url: string;
+  created_at: string;
+}
+
 export interface ActiveBlock {
   id: string;
   type: "game" | "custom" | "slideshow" | "message_wall" | "legendary";
@@ -66,6 +80,10 @@ interface GameState {
   // Online presence
   onlinePlayers: OnlinePlayer[];
 
+  // Social wall
+  socialMessages: SocialMessage[];
+  socialPhotos: SocialPhoto[];
+
   // Actions
   setEventContext: (eventId: string, programId: string | null) => void;
   setActiveBlock: (block: ActiveBlock) => void;
@@ -80,6 +98,10 @@ interface GameState {
   setMyFactSubmitted: (submitted: boolean) => void;
   addAchievement: (achievement: Achievement) => void;
   setAchievements: (achievements: Achievement[], score: number) => void;
+  addSocialMessage: (message: SocialMessage) => void;
+  addSocialPhoto: (photo: SocialPhoto) => void;
+  setSocialMessages: (messages: SocialMessage[]) => void;
+  setSocialPhotos: (photos: SocialPhoto[]) => void;
   reset: () => void;
 }
 
@@ -98,6 +120,8 @@ const initialState = {
   achievements: [],
   legendaryScore: 0,
   onlinePlayers: [],
+  socialMessages: [],
+  socialPhotos: [],
 };
 
 export const useGameStore = create<GameState>((set) => ({
@@ -140,6 +164,20 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   setAchievements: (achievements, score) => set({ achievements, legendaryScore: score }),
+
+  addSocialMessage: (message) =>
+    set((state) => ({
+      socialMessages: [...state.socialMessages, message].slice(-50),
+    })),
+
+  addSocialPhoto: (photo) =>
+    set((state) => ({
+      socialPhotos: [...state.socialPhotos, photo],
+    })),
+
+  setSocialMessages: (messages) => set({ socialMessages: messages }),
+
+  setSocialPhotos: (photos) => set({ socialPhotos: photos }),
 
   reset: () => set(initialState),
 }));

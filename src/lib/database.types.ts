@@ -107,6 +107,93 @@ export type Database = {
           },
         ]
       }
+      event_messages: {
+        Row: {
+          attendee_id: string
+          content: string
+          created_at: string
+          display_name: string
+          event_id: string
+          id: string
+        }
+        Insert: {
+          attendee_id: string
+          content: string
+          created_at?: string
+          display_name: string
+          event_id: string
+          id?: string
+        }
+        Update: {
+          attendee_id?: string
+          content?: string
+          created_at?: string
+          display_name?: string
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_messages_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "event_attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_messages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_photos: {
+        Row: {
+          attendee_id: string
+          created_at: string
+          display_name: string
+          event_id: string
+          id: string
+          storage_path: string
+          url: string
+        }
+        Insert: {
+          attendee_id: string
+          created_at?: string
+          display_name: string
+          event_id: string
+          id?: string
+          storage_path: string
+          url: string
+        }
+        Update: {
+          attendee_id?: string
+          created_at?: string
+          display_name?: string
+          event_id?: string
+          id?: string
+          storage_path?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_photos_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "event_attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_photos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_program: {
         Row: {
           block_type: string

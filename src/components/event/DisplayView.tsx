@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { WelcomeDisplay } from "@/components/display/WelcomeDisplay";
@@ -24,6 +25,20 @@ interface AchievementInit {
   awarded_at: string;
 }
 
+interface SocialMessageInit {
+  id: string;
+  display_name: string;
+  content: string;
+  created_at: string;
+}
+
+interface SocialPhotoInit {
+  id: string;
+  display_name: string;
+  url: string;
+  created_at: string;
+}
+
 interface DisplayViewProps {
   event: {
     id: string;
@@ -33,17 +48,34 @@ interface DisplayViewProps {
   attendees: Attendee[];
   initialAchievements?: AchievementInit[];
   initialScore?: number;
+  initialMessages?: SocialMessageInit[];
+  initialPhotos?: SocialPhotoInit[];
 }
 
-export function DisplayView({ event, attendees, initialAchievements, initialScore }: DisplayViewProps) {
+export function DisplayView({ event, attendees, initialAchievements, initialScore, initialMessages, initialPhotos }: DisplayViewProps) {
   const activeBlock = useGameStore((s) => s.activeBlock);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
+  const socialMessages = useGameStore((s) => s.socialMessages);
+  const socialPhotos = useGameStore((s) => s.socialPhotos);
+  const legendaryScore = useGameStore((s) => s.legendaryScore);
 
-  // Hydrate achievements on mount
-  const hasHydrated = useGameStore((s) => s.achievements.length > 0 || s.legendaryScore > 0);
-  if (!hasHydrated && initialAchievements && initialAchievements.length > 0) {
-    useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
-  }
+  useEffect(() => {
+    if (initialAchievements && initialAchievements.length > 0) {
+      useGameStore.getState().setAchievements(initialAchievements, initialScore ?? 0);
+    }
+  }, [initialAchievements, initialScore]);
+
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      useGameStore.getState().setSocialMessages(initialMessages);
+    }
+  }, [initialMessages]);
+
+  useEffect(() => {
+    if (initialPhotos && initialPhotos.length > 0) {
+      useGameStore.getState().setSocialPhotos(initialPhotos);
+    }
+  }, [initialPhotos]);
 
   useEventChannel({
     eventId: event.id,
@@ -60,6 +92,9 @@ export function DisplayView({ event, attendees, initialAchievements, initialScor
         onlineCount={onlinePlayers.filter((p) => !p.is_display).length}
         attendees={attendees}
         onlinePlayers={onlinePlayers}
+        messages={socialMessages}
+        photos={socialPhotos}
+        legendaryScore={legendaryScore}
       />
     );
   }
