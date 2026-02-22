@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { Copy, Check } from "lucide-react";
 import { useGameStore } from "@/stores/game-store";
 import { ResultsScreen } from "./ResultsScreen";
 
@@ -10,6 +12,7 @@ interface ProjectorScreenProps {
 }
 
 export function ProjectorScreen({ eventSlug, isFullscreen = false }: ProjectorScreenProps) {
+  const [copied, setCopied] = useState(false);
   const phase = useGameStore((s) => s.phase);
   const currentFact = useGameStore((s) => s.currentFact);
   const currentRound = useGameStore((s) => s.currentRound);
@@ -37,9 +40,33 @@ export function ProjectorScreen({ eventSlug, isFullscreen = false }: ProjectorSc
               fgColor="#0f172a"
             />
           </div>
-          <h2 className={`font-black mb-2 italic uppercase ${isFullscreen ? "text-6xl" : "text-4xl"}`}>
-            geventy.com/event/{eventSlug}
-          </h2>
+          {isFullscreen ? (
+            <h2 className="font-black mb-2 italic uppercase text-6xl">
+              geventy.com/event/{eventSlug}
+            </h2>
+          ) : (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`https://geventy.com/event/${eventSlug}`);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="group relative inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 transition-colors mb-2"
+              title={`geventy.com/event/${eventSlug}`}
+            >
+              {copied ? (
+                <Check size={16} className="text-green-400" />
+              ) : (
+                <Copy size={16} className="text-purple-400" />
+              )}
+              <span className="text-xs font-bold text-slate-400 group-hover:text-slate-300 transition-colors">
+                {copied ? "Skopirovano!" : "Kopirovat odkaz"}
+              </span>
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                geventy.com/event/{eventSlug}
+              </span>
+            </button>
+          )}
           <p className={`text-slate-400 font-medium uppercase tracking-widest ${isFullscreen ? "text-2xl" : "text-xl"}`}>
             Naskenuj a pripoj se
           </p>
