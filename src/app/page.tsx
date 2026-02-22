@@ -1,10 +1,30 @@
 import Link from "next/link";
 import { Shell } from "@/components/layout/Shell";
 import { Play, Calendar, Gamepad2, Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { from } from "@/lib/supabase/typed";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let shellUser = null;
+  if (user) {
+    const { data: profile } = await from(supabase, "profiles")
+      .select("id, full_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
+    shellUser = {
+      id: user.id,
+      email: user.email ?? "",
+      full_name: profile?.full_name ?? null,
+      avatar_url: profile?.avatar_url ?? null,
+    };
+  }
+
   return (
-    <Shell>
+    <Shell user={shellUser}>
       {/* Hero */}
       <div className="py-12 md:py-24 text-center space-y-8 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-bold uppercase tracking-[0.2em]">
