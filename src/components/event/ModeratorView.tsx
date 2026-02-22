@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Camera, Zap, Sparkles, Flame, Trophy, Trash2 } from "lucide-react";
+import { Users, Gamepad2, ChevronRight, Home, Play, Monitor, LayoutList, X, Flame, Trophy } from "lucide-react";
 import { useEventChannel } from "@/hooks/useEventChannel";
 import { useGameStore } from "@/stores/game-store";
 import { ProjectorScreen } from "@/components/games/who-am-i/ProjectorScreen";
 import { ModeratorControls } from "@/components/games/who-am-i/ModeratorControls";
 import { startGameAction } from "@/app/actions/program";
-import { awardAchievementAction, removeAchievementAction } from "@/app/actions/achievements";
 import type { Tables } from "@/lib/database.types";
-import type { ActiveBlock, Achievement } from "@/stores/game-store";
+import type { ActiveBlock } from "@/stores/game-store";
 
 interface ProgramBlock extends Tables<"event_program"> {
   gameSlug?: string;
@@ -45,9 +44,7 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
   const [activeGameSlug, setActiveGameSlug] = useState<string | null>(
     initialProgramId ? "who-am-i" : null
   );
-  const [awarding, setAwarding] = useState(false);
-  const [showScoreModal, setShowScoreModal] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
   const onlinePlayers = useGameStore((s) => s.onlinePlayers);
   const legendaryScore = useGameStore((s) => s.legendaryScore);
   const achievements = useGameStore((s) => s.achievements);
@@ -128,28 +125,6 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
     sendCommand("block_deactivate");
     useGameStore.getState().clearActiveBlock();
     useGameStore.getState().reset();
-  }
-
-  async function handleAwardAchievement(type: string, title: string, points: number) {
-    if (awarding) return;
-    setAwarding(true);
-    const result = await awardAchievementAction(event.id, type, title, points);
-    setAwarding(false);
-    if ("error" in result) return;
-
-    const achievement = result.achievement as Achievement;
-    useGameStore.getState().addAchievement(achievement);
-    sendCommand("achievement_awarded", achievement as unknown as Record<string, unknown>);
-  }
-
-  async function handleRemoveAchievement(achievementId: string) {
-    setRemovingId(achievementId);
-    const result = await removeAchievementAction(event.id, achievementId);
-    setRemovingId(null);
-    if ("error" in result) return;
-
-    useGameStore.getState().removeAchievement(achievementId);
-    sendCommand("achievement_removed", { id: achievementId });
   }
 
   function handleToggleLegendary() {
@@ -271,59 +246,37 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
                 <Flame size={16} className="text-amber-400" /> Legendaryness
               </h3>
               <button
-                onClick={() => setShowScoreModal(true)}
-                className="text-2xl font-black italic text-purple-400 tabular-nums hover:text-purple-300 transition-colors cursor-pointer"
-                title="Zobrazit detail"
+                onClick={() => setShowLegend(true)}
+                className="text-2xl font-black italic text-purple-400 tabular-nums hover:text-purple-300 transition-colors"
+                title="Jak ziskat body"
               >
                 {legendaryScore}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button
-                onClick={() => handleAwardAchievement("group_photo", "Skupinove foto", 50)}
-                disabled={awarding}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
-              >
-                <Camera size={14} className="text-purple-400 shrink-0" />
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300 block">Foto</span>
-                  <span className="text-[10px] text-purple-400 font-bold">+50</span>
-                </div>
-              </button>
-              <button
-                onClick={() => handleAwardAchievement("icebreaker_complete", "Icebreaker hotov", 50)}
-                disabled={awarding}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
-              >
-                <Zap size={14} className="text-purple-400 shrink-0" />
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300 block">Icebreaker</span>
-                  <span className="text-[10px] text-purple-400 font-bold">+50</span>
-                </div>
-              </button>
-              <button
-                onClick={() => handleAwardAchievement("midnight_surprise", "Pulnocni prekvapeni", 75)}
-                disabled={awarding}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-purple-500/50 disabled:opacity-50 transition-colors text-left"
-              >
-                <Sparkles size={14} className="text-purple-400 shrink-0" />
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300 block">Midnight</span>
-                  <span className="text-[10px] text-purple-400 font-bold">+75</span>
-                </div>
-              </button>
-              <button
-                onClick={() => handleAwardAchievement("table_dance", "Table dance!", 200)}
-                disabled={awarding}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/50 border border-pink-500/30 hover:border-pink-500/60 disabled:opacity-50 transition-colors text-left"
-              >
-                <Flame size={14} className="text-pink-400 shrink-0" />
-                <div>
-                  <span className="text-[11px] font-bold text-pink-300 block">Table Dance</span>
-                  <span className="text-[10px] text-pink-400 font-bold">+200</span>
-                </div>
-              </button>
+            <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">
+              {achievements.length === 0 ? (
+                <p className="text-xs text-slate-600 text-center py-3">Zatim zadne body.</p>
+              ) : (
+                [...achievements].reverse().map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-800"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-bold text-slate-300 block truncate">
+                        {a.title}
+                      </span>
+                      <span className="text-[10px] text-slate-600">
+                        {new Date(a.awarded_at).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-purple-400 tabular-nums shrink-0">
+                      +{a.points}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <button
@@ -427,65 +380,49 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
           </div>
         </div>
       </div>
-      {/* Score detail modal */}
-      {showScoreModal && (
+      {/* Scoring legend modal */}
+      {showLegend && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowScoreModal(false)}
+          onClick={() => setShowLegend(false)}
         >
           <div
-            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-5 border-b border-slate-800">
               <h3 className="font-black italic uppercase text-sm flex items-center gap-2">
-                <Flame size={16} className="text-amber-400" /> Score detail
+                <Trophy size={16} className="text-amber-400" /> Jak ziskat body
               </h3>
-              <div className="flex items-center gap-3">
-                <span className="text-xl font-black italic text-purple-400 tabular-nums">
-                  {legendaryScore}
-                </span>
-                <button
-                  onClick={() => setShowScoreModal(false)}
-                  className="text-slate-500 hover:text-white transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowLegend(false)}
+                className="text-slate-500 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="overflow-y-auto p-5 space-y-2">
-              {achievements.length === 0 ? (
-                <p className="text-sm text-slate-600 text-center py-4">Zatim zadne body.</p>
-              ) : (
-                [...achievements].reverse().map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-800 group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-bold text-slate-300 block truncate">
-                        {a.title}
-                      </span>
-                      <span className="text-[10px] text-slate-600">
-                        {new Date(a.awarded_at).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-black text-purple-400 tabular-nums">
-                        +{a.points}
-                      </span>
-                      <button
-                        onClick={() => handleRemoveAchievement(a.id)}
-                        disabled={removingId === a.id}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-                        title="Odebrat"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className="p-5 space-y-2">
+              {[
+                { action: "Pripojeni na event", points: 10 },
+                { action: "Odeslani zpravy", points: 5 },
+                { action: "Nahrani fotky", points: 15 },
+                { action: "Ucast v minihre", points: 20 },
+                { action: "Spravna odpoved v kvizu", points: 25 },
+                { action: "Vitezstvi v minihre", points: 50 },
+                { action: "Skupinove foto", points: 50 },
+              ].map((item) => (
+                <div
+                  key={item.action}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-800/50 border border-slate-800"
+                >
+                  <span className="text-xs font-bold text-slate-300">
+                    {item.action}
+                  </span>
+                  <span className="text-sm font-black text-purple-400 tabular-nums">
+                    +{item.points}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
