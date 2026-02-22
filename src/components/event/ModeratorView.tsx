@@ -403,27 +403,38 @@ export function ModeratorView({ event, liveCode, attendees, gamesLibrary, blocks
             </div>
             <div className="p-5 space-y-2">
               {[
-                { action: "Pripojeni na event", points: 10 },
-                { action: "Odeslani zpravy", points: 5 },
-                { action: "Nahrani fotky", points: 15 },
-                { action: "Ucast v minihre", points: 20 },
-                { action: "Spravna odpoved v kvizu", points: 25 },
-                { action: "Vitezstvi v minihre", points: 50 },
-                { action: "Skupinove foto", points: 50 },
+                { action: "Pripojeni na event", points: 10, active: true },
+                { action: "Odeslani zpravy", points: 5, active: true },
+                { action: "Nahrani fotky", points: 15, active: true },
+                { action: "Ucast v minihre", points: 20, active: true },
+                { action: "Spravna odpoved v kvizu", points: 25, active: false },
+                { action: "Vitezstvi v minihre", points: 50, active: false },
               ].map((item) => (
                 <div
                   key={item.action}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-800/50 border border-slate-800"
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                    item.active
+                      ? "bg-slate-800/50 border-slate-800"
+                      : "bg-slate-800/20 border-slate-800/50 opacity-50"
+                  }`}
                 >
-                  <span className="text-xs font-bold text-slate-300">
-                    {item.action}
-                  </span>
-                  <span className="text-sm font-black text-purple-400 tabular-nums">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold ${item.active ? "text-slate-300" : "text-slate-500"}`}>
+                      {item.action}
+                    </span>
+                    {!item.active && (
+                      <span className="text-[9px] font-bold text-slate-600 uppercase">brzy</span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-black tabular-nums ${item.active ? "text-purple-400" : "text-slate-600"}`}>
                     +{item.points}
                   </span>
                 </div>
               ))}
             </div>
+            <p className="px-5 pb-4 text-[10px] text-slate-600">
+              Body se pridavaji automaticky. Moderator nema moznost skore menit.
+            </p>
           </div>
         </div>
       )}

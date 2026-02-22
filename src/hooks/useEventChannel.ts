@@ -21,6 +21,7 @@ export function useEventChannel({
   isDisplay = false,
 }: UseEventChannelOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const achievementChannelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -105,9 +106,7 @@ export function useEventChannel({
           store.reset();
           break;
 
-        case "achievement_awarded":
-          store.addAchievement(cmd.data as unknown as Achievement);
-          break;
+        // achievement_awarded is now handled via postgres_changes subscription
       }
     });
 
@@ -146,6 +145,32 @@ export function useEventChannel({
 
     channelRef.current = channel;
 
+    // Subscribe to auto-awarded achievements via Postgres Realtime
+    const achChannel = supabase
+      .channel(`achievements:${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "event_achievements",
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            achievement_type: string;
+            title: string;
+            points: number;
+            awarded_at: string;
+          };
+          useGameStore.getState().addAchievement(row);
+        }
+      )
+      .subscribe();
+
+    achievementChannelRef.current = achChannel;
+
     // Re-track presence when tab becomes visible (mobile screen unlock, tab switch)
     const presencePayload = {
       attendee_id: attendeeId,
@@ -173,6 +198,10 @@ export function useEventChannel({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(heartbeat);
       supabase.removeChannel(channel);
+      if (achievementChannelRef.current) {
+        supabase.removeChannel(achievementChannelRef.current);
+        achievementChannelRef.current = null;
+      }
       channelRef.current = null;
     };
   }, [eventId, attendeeId, displayName, isModerator, isDisplay, supabase]);

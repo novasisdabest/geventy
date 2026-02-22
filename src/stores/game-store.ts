@@ -159,10 +159,14 @@ export const useGameStore = create<GameState>((set) => ({
   setMyFactSubmitted: (submitted) => set({ myFactSubmitted: submitted }),
 
   addAchievement: (achievement) =>
-    set((state) => ({
-      achievements: [...state.achievements, achievement],
-      legendaryScore: state.legendaryScore + achievement.points,
-    })),
+    set((state) => {
+      // Deduplicate — Postgres Realtime may fire alongside broadcast
+      if (state.achievements.some((a) => a.id === achievement.id)) return state;
+      return {
+        achievements: [...state.achievements, achievement],
+        legendaryScore: state.legendaryScore + achievement.points,
+      };
+    }),
 
   removeAchievement: (achievementId) =>
     set((state) => {
